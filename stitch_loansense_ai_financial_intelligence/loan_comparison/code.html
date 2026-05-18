@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LoanSense AI - Comparison Matrix</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-secondary-fixed": "#1a1b21",
+                    "tertiary": "#dbc3a8",
+                    "primary": "#c3c6d7",
+                    "on-error": "#690005",
+                    "on-primary-fixed": "#171b28",
+                    "inverse-surface": "#e5e2e3",
+                    "secondary-container": "#45464d",
+                    "inverse-primary": "#5a5e6d",
+                    "surface-variant": "#353436",
+                    "on-primary-container": "#777b8a",
+                    "secondary": "#c6c6cd",
+                    "error-container": "#93000a",
+                    "secondary-fixed": "#e3e2e9",
+                    "on-surface": "#e5e2e3",
+                    "surface-container-lowest": "#0e0e0f",
+                    "primary-fixed-dim": "#c3c6d7",
+                    "inverse-on-surface": "#313031",
+                    "surface-bright": "#3a393a",
+                    "outline": "#909096",
+                    "surface-dim": "#131314",
+                    "surface-container-highest": "#353436",
+                    "on-primary": "#2c303d",
+                    "surface": "#131314",
+                    "surface-tint": "#c3c6d7",
+                    "on-secondary": "#2f3036",
+                    "on-error-container": "#ffdad6",
+                    "on-surface-variant": "#c7c6cc",
+                    "surface-container-low": "#1c1b1c",
+                    "primary-fixed": "#dfe2f3",
+                    "on-secondary-fixed-variant": "#45464d",
+                    "on-background": "#e5e2e3",
+                    "on-tertiary-fixed": "#261908",
+                    "primary-container": "#0a0e1a",
+                    "on-tertiary-fixed-variant": "#544430",
+                    "on-primary-fixed-variant": "#434654",
+                    "outline-variant": "#46464c",
+                    "error": "#ffb4ab",
+                    "surface-container": "#201f20",
+                    "tertiary-fixed-dim": "#dbc3a8",
+                    "on-tertiary": "#3c2e1b",
+                    "tertiary-container": "#170c01",
+                    "on-secondary-container": "#b5b4bc",
+                    "background": "#131314",
+                    "on-tertiary-container": "#8c7861",
+                    "secondary-fixed-dim": "#c6c6cd",
+                    "tertiary-fixed": "#f8dec3",
+                    "surface-container-high": "#2a2a2b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin": "40px",
+                    "xs": "4px",
+                    "xl": "80px",
+                    "sm": "12px",
+                    "base": "8px",
+                    "lg": "48px",
+                    "gutter": "24px",
+                    "md": "24px"
+            },
+            "fontFamily": {
+                    "body-lg": ["Inter"],
+                    "headline-sm": ["Space Grotesk"],
+                    "data-mono": ["Space Grotesk"],
+                    "label-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-md": ["Space Grotesk"],
+                    "display-lg": ["Space Grotesk"]
+            },
+            "fontSize": {
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-sm": ["24px", {"lineHeight": "1.3", "fontWeight": "500"}],
+                    "data-mono": ["14px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "label-sm": ["12px", {"lineHeight": "1.0", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-md": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .ai-glow {
+            box-shadow: 0 0 20px rgba(195, 198, 215, 0.15);
+        }
+        .scan-line {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #c3c6d7, transparent);
+            position: absolute;
+            width: 100%;
+            top: 0;
+            opacity: 0.3;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen font-body-md overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-white/12 flex justify-between items-center px-margin py-4 shadow-[0_0_15px_rgba(195,198,215,0.1)]">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md font-bold text-primary tracking-tight">LoanSense AI</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex gap-8">
+<a class="text-primary font-bold font-label-sm text-label-sm" href="#">Compare</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-300 font-label-sm text-label-sm" href="#">Analysis</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-300 font-label-sm text-label-sm" href="#">History</a>
+</div>
+<span class="material-symbols-outlined text-primary" data-icon="sensors">sensors</span>
+<div class="w-10 h-10 rounded-full bg-surface-container-high border border-white/12 flex items-center justify-center overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A professional headshot of a financial tech executive, softly lit with cool blue tones, set against a blurred high-tech office background with digital data overlays. The style is modern, minimalist, and elite, reflecting a high-end fintech brand identity with sharp focus and cinematic depth." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2WJmhp_kMk4KJNuig-oH4sMMYgNASUrM0qLDIjWVr6Q9aqZDFnTDpX7QzL1cqHIJsVYsleiuURQyw4hR0sXf1wWKtdBCv4AiM_LSx3OhvWLhU7bMObRO7otapU5MKPcyvl-YwhRcJgXW5sz318IiVchBH_NHfNWhnTfVVGsjiiQhrGGXQjT7wrwUvKksaCEQGpeSAIPUuePe7B30GWfFnozXOLPdSOdM94V_4IyRqTtuecCpF4gQQr4GJxWLiokndDSa3ID9nlA"/>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-margin max-w-7xl mx-auto space-y-xl">
+<!-- SECTION 1: UPLOAD ZONE -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Upload Loan A -->
+<div class="glass-card rounded-xl p-md flex flex-col items-center justify-center border-dashed border-2 border-primary/20 hover:border-primary/50 transition-all cursor-pointer group relative overflow-hidden">
+<div class="scan-line"></div>
+<div class="p-4 rounded-full bg-primary/10 mb-sm group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-primary text-4xl" data-icon="upload_file">upload_file</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-primary mb-xs">Upload Loan A</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Drop PDF or Scan Document</p>
+<div class="mt-4 flex items-center gap-2 px-3 py-1 bg-surface-container-highest rounded-full border border-white/12">
+<span class="material-symbols-outlined text-xs text-primary" data-icon="check_circle">check_circle</span>
+<span class="font-label-sm text-[10px] text-primary">HDFC_HomeLoan_Draft.pdf</span>
+</div>
+</div>
+<!-- Upload Loan B -->
+<div class="glass-card rounded-xl p-md flex flex-col items-center justify-center border-dashed border-2 border-primary/20 hover:border-primary/50 transition-all cursor-pointer group relative overflow-hidden">
+<div class="p-4 rounded-full bg-primary/10 mb-sm group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-primary text-4xl" data-icon="upload_file">upload_file</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-primary mb-xs">Upload Loan B</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Drop PDF or Scan Document</p>
+<div class="mt-4 flex items-center gap-2 px-3 py-1 bg-surface-container-highest rounded-full border border-white/12">
+<span class="material-symbols-outlined text-xs text-primary" data-icon="check_circle">check_circle</span>
+<span class="font-label-sm text-[10px] text-primary">SBI_Freedom_Plus.pdf</span>
+</div>
+</div>
+</section>
+<!-- SECTION 2: COMPARISON MATRIX -->
+<section class="glass-card rounded-xl overflow-hidden relative ai-glow">
+<div class="p-md border-b border-white/12 bg-white/5">
+<h2 class="font-headline-md text-headline-md text-primary">Comparison Matrix</h2>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-white/12">
+<th class="p-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Metrics</th>
+<th class="p-md font-label-sm text-label-sm text-primary uppercase tracking-wider">Loan A (HDFC)</th>
+<th class="p-md font-label-sm text-label-sm text-primary uppercase tracking-wider">Loan B (SBI)</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/5">
+<tr>
+<td class="p-md font-body-md text-on-surface">Interest Rate</td>
+<td class="p-md font-data-mono text-data-mono">8.45% <span class="text-[10px] text-on-surface-variant font-label-sm ml-1">(Floating)</span></td>
+<td class="p-md font-data-mono text-data-mono text-primary bg-primary/5">8.10% <span class="text-[10px] text-on-surface-variant font-label-sm ml-1">(Fixed for 2yr)</span></td>
+</tr>
+<tr>
+<td class="p-md font-body-md text-on-surface">Foreclosure Fee</td>
+<td class="p-md font-data-mono text-data-mono text-error">2.5% of principal</td>
+<td class="p-md font-data-mono text-data-mono text-primary bg-primary/5">NIL</td>
+</tr>
+<tr>
+<td class="p-md font-body-md text-on-surface">Hidden Charges</td>
+<td class="p-md font-body-md text-on-surface">
+<div class="inline-flex items-center gap-1 border border-error/50 bg-error/10 px-2 py-0.5 rounded text-[10px] text-error">
+<span class="material-symbols-outlined text-[12px]" data-icon="warning">warning</span>
+                                    Legal Verification Fee
+                                </div>
+</td>
+<td class="p-md font-body-md text-on-surface bg-primary/5">
+<div class="inline-flex items-center gap-1 border border-primary/50 bg-primary/10 px-2 py-0.5 rounded text-[10px] text-primary">
+<span class="material-symbols-outlined text-[12px]" data-icon="check">check</span>
+                                    Fully Transparent
+                                </div>
+</td>
+</tr>
+<tr>
+<td class="p-md font-body-md text-on-surface">Processing Time</td>
+<td class="p-md font-data-mono text-data-mono">7-10 Business Days</td>
+<td class="p-md font-data-mono text-data-mono bg-primary/5">3-5 Business Days</td>
+</tr>
+<tr>
+<td class="p-md font-body-md text-on-surface">Early Repayment</td>
+<td class="p-md font-data-mono text-data-mono">Allowed after 12 mo</td>
+<td class="p-md font-data-mono text-data-mono bg-primary/5">Allowed anytime</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- SECTION 3: AI RECOMMENDATION PANEL & FINAL SCORE -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- AI RECOMMENDATION CARD -->
+<div class="lg:col-span-2 glass-card rounded-xl p-md border-l-4 border-primary relative overflow-hidden ai-glow">
+<div class="flex items-start gap-4 mb-sm">
+<div class="p-3 bg-primary/10 rounded-lg">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="smart_toy">smart_toy</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-primary">Loan B is financially safer...</h3>
+<p class="font-body-md text-on-surface-variant mt-1">Based on multi-vector analysis of 42 clauses including hidden prepayment penalties.</p>
+</div>
+</div>
+<div class="space-y-sm mt-md">
+<div class="flex gap-3 items-start">
+<span class="material-symbols-outlined text-primary mt-1" data-icon="insights">insights</span>
+<p class="font-body-md text-on-surface"><strong class="text-primary">Interest Savings:</strong> Loan B offers a cumulative saving of $12,450 over a 15-year tenure due to the fixed-rate buffer.</p>
+</div>
+<div class="flex gap-3 items-start">
+<span class="material-symbols-outlined text-primary mt-1" data-icon="verified_user">verified_user</span>
+<p class="font-body-md text-on-surface"><strong class="text-primary">Transparency Score:</strong> No predatory "administrative re-valuation" clauses detected in Document B.</p>
+</div>
+</div>
+</div>
+<!-- FINAL SCORE VISUAL -->
+<div class="glass-card rounded-xl p-md flex flex-col items-center justify-center text-center relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none"></div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mb-sm">LoanSense AI Verdict</p>
+<div class="relative w-40 h-40 flex items-center justify-center mb-md">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-white/5" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-primary drop-shadow-[0_0_8px_rgba(195,198,215,0.6)]" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" stroke-dasharray="440" stroke-dashoffset="44" stroke-width="12"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="font-display-lg text-display-lg text-primary">9.2</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Safety Index</span>
+</div>
+</div>
+<div class="bg-primary px-6 py-2 rounded-full mb-xs">
+<span class="font-label-sm text-label-sm text-on-primary font-bold">Recommended Choice: Loan B</span>
+</div>
+<p class="font-label-sm text-[10px] text-on-surface-variant italic">98.4% Confidence Interval</p>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-8 left-0 right-0 z-50 flex justify-around items-center py-3 px-6 bg-surface-container/60 backdrop-blur-xl w-[90%] max-w-lg mx-auto rounded-full border border-white/12 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)]">
+<div class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary/80 transition-all duration-300">
+<span class="material-symbols-outlined text-2xl" data-icon="home">home</span>
+<span class="font-label-sm text-[10px] mt-1">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary/80 transition-all duration-300">
+<span class="material-symbols-outlined text-2xl" data-icon="analytics">analytics</span>
+<span class="font-label-sm text-[10px] mt-1">Analyse</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary/80 transition-all duration-300">
+<span class="material-symbols-outlined text-2xl" data-icon="smart_toy">smart_toy</span>
+<span class="font-label-sm text-[10px] mt-1">AI Assistant</span>
+</div>
+<div class="flex flex-col items-center justify-center text-primary drop-shadow-[0_0_8px_rgba(195,198,215,0.8)] scale-110 animate-pulse">
+<span class="material-symbols-outlined text-2xl" data-icon="compare_arrows">compare_arrows</span>
+<span class="font-label-sm text-[10px] mt-1">Compare</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary/80 transition-all duration-300">
+<span class="material-symbols-outlined text-2xl" data-icon="person">person</span>
+<span class="font-label-sm text-[10px] mt-1">Profile</span>
+</div>
+</nav>
+<!-- Scanning Animation Element -->
+<div class="fixed bottom-32 left-margin right-margin pointer-events-none opacity-20 hidden md:block">
+<div class="h-1 w-full bg-primary blur-sm animate-pulse"></div>
+</div>
+</body></html>

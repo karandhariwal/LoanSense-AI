@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LoanSense AI | Financial Intelligence Console</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .ai-orb-glow {
+      background: radial-gradient(circle, rgba(195, 198, 215, 0.4) 0%, rgba(90, 94, 109, 0.1) 70%);
+      box-shadow: 0 0 40px rgba(195, 198, 215, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.1);
+    }
+    .scan-line {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #c3c6d7, transparent);
+      width: 100%;
+      position: absolute;
+      top: 50%;
+      opacity: 0.5;
+    }
+    body {
+      background-color: #131314;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(20, 20, 35, 1) 0, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(10, 10, 20, 1) 0, transparent 50%);
+    }
+  </style>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-secondary-fixed": "#1a1b21",
+            "tertiary": "#dbc3a8",
+            "primary": "#c3c6d7",
+            "on-error": "#690005",
+            "on-primary-fixed": "#171b28",
+            "inverse-surface": "#e5e2e3",
+            "secondary-container": "#45464d",
+            "inverse-primary": "#5a5e6d",
+            "surface-variant": "#353436",
+            "on-primary-container": "#777b8a",
+            "secondary": "#c6c6cd",
+            "error-container": "#93000a",
+            "secondary-fixed": "#e3e2e9",
+            "on-surface": "#e5e2e3",
+            "surface-container-lowest": "#0e0e0f",
+            "primary-fixed-dim": "#c3c6d7",
+            "inverse-on-surface": "#313031",
+            "surface-bright": "#3a393a",
+            "outline": "#909096",
+            "surface-dim": "#131314",
+            "surface-container-highest": "#353436",
+            "on-primary": "#2c303d",
+            "surface": "#131314",
+            "surface-tint": "#c3c6d7",
+            "on-secondary": "#2f3036",
+            "on-error-container": "#ffdad6",
+            "on-surface-variant": "#c7c6cc",
+            "surface-container-low": "#1c1b1c",
+            "primary-fixed": "#dfe2f3",
+            "on-secondary-fixed-variant": "#45464d",
+            "on-background": "#e5e2e3",
+            "on-tertiary-fixed": "#261908",
+            "primary-container": "#0a0e1a",
+            "on-tertiary-fixed-variant": "#544430",
+            "on-primary-fixed-variant": "#434654",
+            "outline-variant": "#46464c",
+            "error": "#ffb4ab",
+            "surface-container": "#201f20",
+            "tertiary-fixed-dim": "#dbc3a8",
+            "on-tertiary": "#3c2e1b",
+            "tertiary-container": "#170c01",
+            "on-secondary-container": "#b5b4bc",
+            "background": "#131314",
+            "on-tertiary-container": "#8c7861",
+            "secondary-fixed-dim": "#c6c6cd",
+            "tertiary-fixed": "#f8dec3",
+            "surface-container-high": "#2a2a2b"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "margin": "40px",
+            "xs": "4px",
+            "xl": "80px",
+            "sm": "12px",
+            "base": "8px",
+            "lg": "48px",
+            "gutter": "24px",
+            "md": "24px"
+          },
+          "fontFamily": {
+            "body-lg": ["Inter"],
+            "headline-sm": ["Space Grotesk"],
+            "data-mono": ["Space Grotesk"],
+            "label-sm": ["Inter"],
+            "body-md": ["Inter"],
+            "headline-md": ["Space Grotesk"],
+            "display-lg": ["Space Grotesk"]
+          },
+          "fontSize": {
+            "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+            "headline-sm": ["24px", {"lineHeight": "1.3", "fontWeight": "500"}],
+            "data-mono": ["14px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "500"}],
+            "label-sm": ["12px", {"lineHeight": "1.0", "fontWeight": "600"}],
+            "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+            "headline-md": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
+            "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen text-on-surface font-body-md overflow-x-hidden">
+<!-- Top AppBar -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-white/12 flex justify-between items-center px-margin py-4 w-full shadow-[0_0_15px_rgba(195,198,215,0.1)]">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary-container border border-white/12 flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a sophisticated user in high-end office lighting, with subtle cyan color reflections on the skin. The image is crisp, modern, and high-resolution, evoking a sense of corporate elite financial status against a deep, blurred background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzKzZop2UlKzKb5wJnh18HWHAdNlyKwhAjgtK_PH8Wq6f5P3LcZj1jXZYIoJY-nL6e49W3Jl-NrSPrkmNz5epR72kJcfO9XY0JoaCOmoDi__IgpOzhpYjsc7JiR0qfh6YVrO0sOrjSbo_t8BOiWdRG5dBtlSmwjqYG_TK_692-zoZZ4xxvfL51AURGDwlMe7ZShx0Wpp01p6W9a6_9Gbecrp9_AKXZD4VBZkab4SqK-WKwSK4QiGKuiy2IM_1q0AFWuW-RnJeMeg"/>
+</div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tight">LoanSense AI</h1>
+</div>
+<div class="flex items-center gap-6">
+<span class="material-symbols-outlined text-primary text-headline-sm" data-icon="sensors">sensors</span>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="pt-28 pb-40 px-margin max-w-4xl mx-auto min-h-screen flex flex-col gap-lg">
+<!-- AI Orb Header -->
+<div class="flex flex-col items-center justify-center relative py-lg">
+<div class="ai-orb-glow w-24 h-24 rounded-full flex items-center justify-center relative">
+<span class="material-symbols-outlined text-primary text-display-lg" data-icon="smart_toy">smart_toy</span>
+<div class="absolute inset-0 w-full h-full rounded-full animate-ping bg-primary/20"></div>
+</div>
+<div class="mt-6 text-center">
+<p class="font-data-mono text-data-mono text-primary uppercase tracking-widest opacity-80">Intelligence Console Active</p>
+<h2 class="font-headline-sm text-headline-sm text-on-surface mt-2">Personalized Loan Analysis</h2>
+</div>
+</div>
+<!-- Chat Stream -->
+<div class="flex flex-col gap-md">
+<!-- User Query -->
+<div class="flex justify-end">
+<div class="glass-card rounded-2xl rounded-tr-none px-6 py-4 max-w-[80%] border-l-primary border-l-2">
+<p class="font-body-md text-on-surface">Can I close this loan early?</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant/50 mt-2 text-right">09:41 AM</p>
+</div>
+</div>
+<!-- AI Response -->
+<div class="flex flex-col gap-sm">
+<div class="glass-card rounded-2xl rounded-tl-none p-6 relative overflow-hidden group">
+<!-- Scan Line Animation -->
+<div class="scan-line top-0 left-0 animate-[bounce_4s_infinite]"></div>
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-primary" data-icon="terminal">terminal</span>
+<span class="font-data-mono text-data-mono text-primary">PROCESSING ENGINE 2.4B</span>
+</div>
+<div class="space-y-6">
+<!-- Answer -->
+<section>
+<h3 class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-2">Answer</h3>
+<p class="font-body-lg text-body-lg text-on-surface">Yes, you can initiate a <span class="text-primary font-bold">full foreclosure</span> after 12 successful EMIs. However, a 2.5% penalty applies to the outstanding principal amount if closed within the first 24 months.</p>
+</section>
+<!-- Source Clause -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<section class="p-4 rounded-lg bg-surface-container-high border border-white/5">
+<h3 class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Source Clause</h3>
+<p class="font-data-mono text-sm italic">"Pre-payment &amp; Foreclosure Terms (Article 4.2)"</p>
+</section>
+<section class="p-4 rounded-lg bg-surface-container-high border border-white/5">
+<h3 class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Page Reference</h3>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="description">description</span>
+<p class="font-data-mono text-sm">Agreement_V2.pdf • Page 14</p>
+</div>
+</section>
+</div>
+<!-- Risk Context -->
+<section class="p-4 rounded-xl bg-primary/5 border border-primary/20 border-l-4 border-l-tertiary">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-tertiary" data-icon="warning">warning</span>
+<h3 class="font-label-sm text-label-sm text-tertiary uppercase tracking-wider">Risk Context</h3>
+</div>
+<p class="font-body-md text-on-surface">Foreclosing before the 24-month mark results in a loss of <span class="font-bold text-primary">$1,240</span> in penalty fees. Waiting 6 more months reduces the penalty to 0.5%.</p>
+</section>
+</div>
+<!-- Insight Capsules -->
+<div class="mt-6 flex flex-wrap gap-2">
+<div class="px-3 py-1 rounded-full border border-primary/20 bg-primary/5 flex items-center gap-1.5">
+<div class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
+<span class="font-label-sm text-[10px] text-primary uppercase">Optimized Path Found</span>
+</div>
+<div class="px-3 py-1 rounded-full border border-tertiary/20 bg-tertiary/5 flex items-center gap-1.5">
+<span class="font-label-sm text-[10px] text-tertiary uppercase">Penalty Advisory</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Suggested Questions -->
+<div class="flex flex-col gap-sm mt-4">
+<p class="font-label-sm text-label-sm text-on-surface-variant/70 ml-2">Recommended Queries</p>
+<div class="flex gap-sm overflow-x-auto pb-2 scrollbar-hide no-scrollbar">
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-white/12 bg-surface-container/40 hover:bg-primary/10 hover:border-primary/40 transition-all font-label-sm text-on-surface-variant hover:text-primary">
+          What are the hidden fees?
+        </button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-white/12 bg-surface-container/40 hover:bg-primary/10 hover:border-primary/40 transition-all font-label-sm text-on-surface-variant hover:text-primary">
+          Late EMI penalties?
+        </button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-white/12 bg-surface-container/40 hover:bg-primary/10 hover:border-primary/40 transition-all font-label-sm text-on-surface-variant hover:text-primary">
+          Tax benefits section?
+        </button>
+</div>
+</div>
+</main>
+<!-- Input Bar - Floating Glass -->
+<div class="fixed bottom-28 left-1/2 -translate-x-1/2 w-[90%] max-w-lg z-40">
+<div class="glass-card rounded-full p-2 flex items-center gap-3 border border-white/12 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)]">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-primary/70 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="attach_file">attach_file</span>
+</button>
+<input class="bg-transparent border-none focus:ring-0 flex-1 font-body-md text-on-surface placeholder-on-surface-variant/50" placeholder="Inquire about your loan terms..." type="text"/>
+<button class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-[0_0_15px_rgba(195,198,215,0.4)] active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="send">send</span>
+</button>
+</div>
+</div>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-8 left-0 right-0 z-50 flex justify-around items-center py-3 px-6 bg-surface-container/60 backdrop-blur-xl fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-lg rounded-full border border-white/12 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)]">
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-label-sm text-label-sm mt-1">Analyse</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary drop-shadow-[0_0_8px_rgba(195,198,215,0.8)] scale-110 animate-pulse" href="#">
+<span class="material-symbols-outlined" data-icon="smart_toy" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+<span class="font-label-sm text-label-sm mt-1">AI Assistant</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="compare_arrows">compare_arrows</span>
+<span class="font-label-sm text-label-sm mt-1">Compare</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm mt-1">Profile</span>
+</a>
+</nav>
+<!-- Global Glass Overlays -->
+<div class="fixed top-20 right-10 pointer-events-none opacity-20">
+<img class="w-64 h-64 mix-blend-screen" data-alt="Abstract 3D digital wireframe geometry in glowing cyan and violet hues. The lines are thin and precise, resembling complex financial neural networks or data structures floating in a dark vacuum. The lighting is ethereal and high-tech, fitting an advanced AI interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRPFoZZyyxOYUOc2QFoKc5G6pumTalv47-ZeCaGzu6db0K6hDinb8FVg2Cm3VSq1Lx9PBzGgot2psj1_2H0kKwuEZoHdc5JVoFDFium-V0GjFep4sD6GuVA77bjBTdWlGK3MqGKBWvXffyN3smUuJabfeUvVttFIdnHQbL42nPMqdDR-7vwGqzqxZbcCVHYPvv9jtghl5MklhFbwdWDeiTT_FEQxV4PLLVvpkV3wW3VsDE5gKueP5ASyDY2JyvOVG7Ly1JOAhjdg"/>
+</div>
+</body></html>

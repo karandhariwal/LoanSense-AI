@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LoanSense AI - Secure Authentication</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#1a1b21",
+                        "tertiary": "#dbc3a8",
+                        "primary": "#c3c6d7",
+                        "on-error": "#690005",
+                        "on-primary-fixed": "#171b28",
+                        "inverse-surface": "#e5e2e3",
+                        "secondary-container": "#45464d",
+                        "inverse-primary": "#5a5e6d",
+                        "surface-variant": "#353436",
+                        "on-primary-container": "#777b8a",
+                        "secondary": "#c6c6cd",
+                        "error-container": "#93000a",
+                        "secondary-fixed": "#e3e2e9",
+                        "on-surface": "#e5e2e3",
+                        "surface-container-lowest": "#0e0e0f",
+                        "primary-fixed-dim": "#c3c6d7",
+                        "inverse-on-surface": "#313031",
+                        "surface-bright": "#3a393a",
+                        "outline": "#909096",
+                        "surface-dim": "#131314",
+                        "surface-container-highest": "#353436",
+                        "on-primary": "#2c303d",
+                        "surface": "#131314",
+                        "surface-tint": "#c3c6d7",
+                        "on-secondary": "#2f3036",
+                        "on-error-container": "#ffdad6",
+                        "on-surface-variant": "#c7c6cc",
+                        "surface-container-low": "#1c1b1c",
+                        "primary-fixed": "#dfe2f3",
+                        "on-secondary-fixed-variant": "#45464d",
+                        "on-background": "#e5e2e3",
+                        "on-tertiary-fixed": "#261908",
+                        "primary-container": "#0a0e1a",
+                        "on-tertiary-fixed-variant": "#544430",
+                        "on-primary-fixed-variant": "#434654",
+                        "outline-variant": "#46464c",
+                        "error": "#ffb4ab",
+                        "surface-container": "#201f20",
+                        "tertiary-fixed-dim": "#dbc3a8",
+                        "on-tertiary": "#3c2e1b",
+                        "tertiary-container": "#170c01",
+                        "on-secondary-container": "#b5b4bc",
+                        "background": "#131314",
+                        "on-tertiary-container": "#8c7861",
+                        "secondary-fixed-dim": "#c6c6cd",
+                        "tertiary-fixed": "#f8dec3",
+                        "surface-container-high": "#2a2a2b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin": "40px",
+                        "xs": "4px",
+                        "xl": "80px",
+                        "sm": "12px",
+                        "base": "8px",
+                        "lg": "48px",
+                        "gutter": "24px",
+                        "md": "24px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-sm": ["Space Grotesk"],
+                        "data-mono": ["Space Grotesk"],
+                        "label-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Space Grotesk"],
+                        "display-lg": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "headline-sm": ["24px", {"lineHeight": "1.3", "fontWeight": "500"}],
+                        "data-mono": ["14px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "label-sm": ["12px", {"lineHeight": "1.0", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "headline-md": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                        "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .scan-line {
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #c3c6d7, transparent);
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0.3;
+        }
+        .glow-button:hover {
+            box-shadow: 0 0 20px rgba(195, 198, 215, 0.2);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex flex-col font-body-md overflow-hidden relative">
+<!-- Background Atmospheric Gradients -->
+<div class="absolute inset-0 z-0 pointer-events-none">
+<div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-tertiary/5 rounded-full blur-[100px]"></div>
+</div>
+<!-- Main Content Container -->
+<main class="relative z-10 flex flex-col items-center justify-center min-h-screen px-margin">
+<!-- Header Section -->
+<header class="text-center mb-lg flex flex-col items-center">
+<div class="mb-sm flex items-center gap-base">
+<span class="material-symbols-outlined text-primary text-[40px]" data-icon="account_balance">account_balance</span>
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tight">LoanSense AI</h1>
+</div>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-sm">
+                Welcome to LoanSense AI
+            </p>
+</header>
+<!-- Glassmorphism Login Card -->
+<section class="glass-card w-full max-w-md p-lg rounded-[2rem] shadow-2xl relative overflow-hidden">
+<!-- Scan line decorative element -->
+<div class="scan-line"></div>
+<div class="flex flex-col gap-md">
+<div class="text-center mb-base">
+<h2 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Secure Access</h2>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">Identify yourself to continue</p>
+</div>
+<!-- Auth Buttons -->
+<div class="flex flex-col gap-sm">
+<!-- Google Option -->
+<button class="glow-button group flex items-center justify-center gap-sm w-full py-4 px-6 bg-surface-container-high rounded-xl border border-white/5 transition-all duration-300 hover:bg-surface-container-highest">
+<svg class="w-5 h-5" viewbox="0 0 24 24">
+<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
+<path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+<path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"></path>
+<path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
+</svg>
+<span class="font-label-sm text-label-sm text-on-surface">Continue with Google</span>
+</button>
+<!-- Phone Option -->
+<button class="glow-button group flex items-center justify-center gap-sm w-full py-4 px-6 bg-surface-container-high rounded-xl border border-white/5 transition-all duration-300 hover:bg-surface-container-highest">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors" data-icon="phone_iphone">phone_iphone</span>
+<span class="font-label-sm text-label-sm text-on-surface">Continue with Phone Number</span>
+</button>
+</div>
+<div class="flex items-center gap-base my-sm">
+<div class="h-[1px] flex-1 bg-white/5"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant/40">SECURED BY AI</span>
+<div class="h-[1px] flex-1 bg-white/5"></div>
+</div>
+<!-- Privacy/Disclaimer Capsule -->
+<div class="flex items-center gap-sm bg-primary/5 p-sm rounded-lg border border-primary/10">
+<span class="material-symbols-outlined text-primary text-sm" data-icon="verified_user">verified_user</span>
+<p class="font-label-sm text-label-sm text-on-surface-variant/80">
+                        Zero-knowledge proof authentication enabled.
+                    </p>
+</div>
+</div>
+</section>
+<!-- Footer Section -->
+<footer class="mt-lg text-center max-w-xs">
+<div class="flex items-center justify-center gap-xs text-primary/60 mb-xs">
+<span class="material-symbols-outlined text-sm" data-icon="lock" data-weight="fill" style="font-variation-settings: 'FILL' 1;">lock</span>
+<span class="font-label-sm text-label-sm uppercase tracking-tighter">End-to-End Encryption</span>
+</div>
+<p class="font-body-md text-on-surface-variant/60">
+                Your loan documents are encrypted and private.
+            </p>
+</footer>
+</main>
+<!-- Visual Enhancements: Bottom Gradient -->
+<div class="fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent z-0 pointer-events-none"></div>
+<!-- Decorative Image Component (Background Abstract) -->
+<div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full -z-10 opacity-20">
+<img alt="Abstract digital background" class="w-full h-full object-cover" data-alt="A sophisticated abstract digital background featuring intricate geometric web structures and soft bokeh light particles. The aesthetic is futuristic and high-tech, using a deep navy and obsidian palette with subtle glows of cyan and silver. Soft crystalline structures float in a vast dark void, creating a sense of immense depth and advanced computational power. The lighting is moody and focused, evoking a professional atmosphere of financial security and architectural precision." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTPJoMHW5y-BwbjowyxOk8fCSvzi8QVXp3u_ZQ2nloqEvYZ24qzDsHFSkRG0Gj3RuNPgYt21yMTghgNzXcc3-QCWOZZn_rTbj5ZuUmFMG0fWCB29PxTJpuEX6qdFP2zZg-PhVhEiozke_nOavLVWDDL_qPqz5sNNvvZ2g9Fnw9SI8tMtk1MAoA9Sgxc9guVeApc7d-QCHeXpRT2bOcg7AO8FN4xFPhsWGcKs47PQc6RVyy9rERbXQA5pW2h7NkuHG8afqlE3yxPw"/>
+</div>
+</body></html>

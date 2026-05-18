@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Profile &amp; Settings - LoanSense AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-secondary-fixed": "#1a1b21",
+                    "tertiary": "#dbc3a8",
+                    "primary": "#c3c6d7",
+                    "on-error": "#690005",
+                    "on-primary-fixed": "#171b28",
+                    "inverse-surface": "#e5e2e3",
+                    "secondary-container": "#45464d",
+                    "inverse-primary": "#5a5e6d",
+                    "surface-variant": "#353436",
+                    "on-primary-container": "#777b8a",
+                    "secondary": "#c6c6cd",
+                    "error-container": "#93000a",
+                    "secondary-fixed": "#e3e2e9",
+                    "on-surface": "#e5e2e3",
+                    "surface-container-lowest": "#0e0e0f",
+                    "primary-fixed-dim": "#c3c6d7",
+                    "inverse-on-surface": "#313031",
+                    "surface-bright": "#3a393a",
+                    "outline": "#909096",
+                    "surface-dim": "#131314",
+                    "surface-container-highest": "#353436",
+                    "on-primary": "#2c303d",
+                    "surface": "#131314",
+                    "surface-tint": "#c3c6d7",
+                    "on-secondary": "#2f3036",
+                    "on-error-container": "#ffdad6",
+                    "on-surface-variant": "#c7c6cc",
+                    "surface-container-low": "#1c1b1c",
+                    "primary-fixed": "#dfe2f3",
+                    "on-secondary-fixed-variant": "#45464d",
+                    "on-background": "#e5e2e3",
+                    "on-tertiary-fixed": "#261908",
+                    "primary-container": "#0a0e1a",
+                    "on-tertiary-fixed-variant": "#544430",
+                    "on-primary-fixed-variant": "#434654",
+                    "outline-variant": "#46464c",
+                    "error": "#ffb4ab",
+                    "surface-container": "#201f20",
+                    "tertiary-fixed-dim": "#dbc3a8",
+                    "on-tertiary": "#3c2e1b",
+                    "tertiary-container": "#170c01",
+                    "on-secondary-container": "#b5b4bc",
+                    "background": "#131314",
+                    "on-tertiary-container": "#8c7861",
+                    "secondary-fixed-dim": "#c6c6cd",
+                    "tertiary-fixed": "#f8dec3",
+                    "surface-container-high": "#2a2a2b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin": "40px",
+                    "xs": "4px",
+                    "xl": "80px",
+                    "sm": "12px",
+                    "base": "8px",
+                    "lg": "48px",
+                    "gutter": "24px",
+                    "md": "24px"
+            },
+            "fontFamily": {
+                    "body-lg": ["Inter"],
+                    "headline-sm": ["Space Grotesk"],
+                    "data-mono": ["Space Grotesk"],
+                    "label-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-md": ["Space Grotesk"],
+                    "display-lg": ["Space Grotesk"]
+            },
+            "fontSize": {
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-sm": ["24px", {"lineHeight": "1.3", "fontWeight": "500"}],
+                    "data-mono": ["14px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "label-sm": ["12px", {"lineHeight": "1.0", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-md": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .ai-scan-line {
+            position: relative;
+            overflow: hidden;
+        }
+        .ai-scan-line::after {
+            content: '';
+            position: absolute;
+            top: -100%;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent, rgba(195, 198, 215, 0.1), transparent);
+            animation: scan 4s linear infinite;
+        }
+        @keyframes scan {
+            0% { top: -100%; }
+            100% { top: 100%; }
+        }
+        .glowing-primary {
+            box-shadow: 0 0 15px rgba(195, 198, 215, 0.2);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 z-50 w-full bg-background/80 backdrop-blur-md border-b border-white/12 flex justify-between items-center px-margin py-4 shadow-[0_0_15px_rgba(195,198,215,0.1)]">
+<div class="font-headline-md text-headline-md font-bold text-primary tracking-tight">LoanSense AI</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary" data-icon="sensors">sensors</span>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-white/12">
+<img alt="User Profile Photo" class="w-full h-full object-cover" data-alt="A high-end professional headshot of a person with a serene expression, set against a dark, technologically sophisticated studio background. The lighting is dramatic and precise, reflecting a high-tech financial sector aesthetic with soft cyan rim lighting. The overall mood is intelligent and trustworthy, echoing the clean and futuristic design language of an elite AI financial tool." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCEcmj5ErI5gXuqF7cB8clW3ZEHGl0-I41MNXUK9Fla1r9DA9xbNH9-Vz2GJphGZwXZ0KuXUAGwnVwlFIRxdyg9omVhQ9YQZIhaXf6rAne9sdNjeMAhaGrNPVu6Kw462wqbq_0kAoqDvqWryDGc_1HeFqbHzQXrVqbp7yLQRzFcBQd0eUaQpyanyOVkY1Gn_ux6ORDro-IhC6UDug_V1z_pbLUdpaPjdPyTNWh4oO3SoMLgfHIR6ESdbWWbxD4yw2hKGcrn6A82_g"/>
+</div>
+</div>
+</header>
+<main class="mt-24 px-gutter max-w-3xl mx-auto space-y-xl">
+<!-- Account Section -->
+<section class="space-y-md">
+<h2 class="font-headline-sm text-headline-sm text-primary tracking-tight px-2">Account</h2>
+<div class="glass-card rounded-xl p-md flex items-center gap-md ai-scan-line">
+<div class="relative">
+<img alt="Profile" class="w-20 h-20 rounded-full object-cover border-2 border-primary/20" data-alt="A close-up portrait of a professional individual in a sleek, dark setting. The lighting is sophisticated, with a subtle blue bioluminescent glow reflecting off the skin, suggesting a connection to advanced digital interfaces. The aesthetic is clean and minimal, emphasizing clarity and precision in a modern financial environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZYsBwhVTqBZ7VmxAiWuyc1olmEIAC3cTouO1Qz22DumLHKgjBgEh7aJnMyNs_OHJ0HYW_SGa0jIyJIkyrvo4pmEPbdZh3selV3Cu0JEN7ByqVBxzyjdyX53YUaboa6b1fjkGUQcbFUhRI4x_RaYG3UTSORxxKQ8e5SfvWN9aby2B3-1DP7QTE33d3mYKK_KaLMze8UzJAp27-GoPIXq75RUgv-0p57FNYSgOpNPtk4XksuymatQwM7IHugno3rMXnqXTynT0ReA"/>
+<button class="absolute bottom-0 right-0 bg-primary text-on-primary p-1.5 rounded-full shadow-lg hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit">edit</span>
+</button>
+</div>
+<div class="flex-1">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Alexander Vance</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant">alexander.vance@financial-elite.com</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="chevron_right">chevron_right</span>
+</div>
+</section>
+<!-- Preferences Section -->
+<section class="space-y-md">
+<h2 class="font-headline-sm text-headline-sm text-primary tracking-tight px-2">Preferences</h2>
+<div class="space-y-sm">
+<!-- Language Toggle -->
+<div class="glass-card rounded-xl p-md flex justify-between items-center hover:bg-white/5 transition-colors group">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary" data-icon="translate">translate</span>
+<span class="font-body-md text-on-surface">Language</span>
+</div>
+<div class="flex items-center gap-base">
+<span class="font-label-sm text-label-sm text-on-surface-variant">English (US)</span>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform" data-icon="arrow_forward_ios" style="font-size: 16px;">arrow_forward_ios</span>
+</div>
+</div>
+<!-- Theme Mode -->
+<div class="glass-card rounded-xl p-md flex justify-between items-center">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary" data-icon="dark_mode">dark_mode</span>
+<span class="font-body-md text-on-surface">Theme Mode</span>
+</div>
+<div class="flex bg-surface-container-low p-1 rounded-full border border-white/5">
+<button class="px-4 py-1.5 rounded-full text-primary font-label-sm text-label-sm bg-white/5 glowing-primary">Dark</button>
+<button class="px-4 py-1.5 rounded-full text-on-surface-variant font-label-sm text-label-sm">Light</button>
+</div>
+</div>
+<!-- AI Response Style -->
+<div class="glass-card rounded-xl p-md space-y-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary" data-icon="bolt">bolt</span>
+<span class="font-body-md text-on-surface">AI Response Style</span>
+</div>
+<div class="grid grid-cols-3 gap-sm">
+<button class="flex flex-col items-center gap-xs p-base rounded-lg border border-white/5 hover:border-primary/50 transition-all">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Precise</span>
+</button>
+<button class="flex flex-col items-center gap-xs p-base rounded-lg border border-primary bg-primary/10 transition-all">
+<span class="font-label-sm text-label-sm text-primary font-bold">Balanced</span>
+</button>
+<button class="flex flex-col items-center gap-xs p-base rounded-lg border border-white/5 hover:border-primary/50 transition-all">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Analytical</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Privacy Section -->
+<section class="space-y-md">
+<h2 class="font-headline-sm text-headline-sm text-primary tracking-tight px-2">Privacy</h2>
+<div class="glass-card rounded-xl divide-y divide-white/5 overflow-hidden">
+<button class="w-full p-md flex justify-between items-center hover:bg-white/5 transition-colors">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-error" data-icon="delete_sweep">delete_sweep</span>
+<span class="font-body-md text-on-surface">Delete uploaded documents</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="arrow_forward_ios" style="font-size: 16px;">arrow_forward_ios</span>
+</button>
+<div class="p-md space-y-sm">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary" data-icon="policy">policy</span>
+<span class="font-body-md text-on-surface">Data retention policy</span>
+</div>
+<div class="px-3 py-1 rounded-full bg-tertiary/10 border border-tertiary/20">
+<span class="font-label-sm text-label-sm text-tertiary">30 Days</span>
+</div>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant leading-relaxed">Your financial data is encrypted with AES-256 and purged automatically after 30 days of inactivity to ensure absolute privacy.</p>
+</div>
+</div>
+</section>
+<!-- About Section -->
+<section class="space-y-md">
+<h2 class="font-headline-sm text-headline-sm text-primary tracking-tight px-2">About</h2>
+<div class="glass-card rounded-xl p-md space-y-md">
+<div class="flex justify-between items-center">
+<span class="font-body-md text-on-surface">App Version</span>
+<span class="font-data-mono text-data-mono text-primary">v4.12.0-STABLE</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-md text-on-surface">AI Transparency</span>
+<button class="text-primary font-label-sm text-label-sm flex items-center gap-xs">
+                        View Audit Log
+                        <span class="material-symbols-outlined text-[14px]" data-icon="open_in_new">open_in_new</span>
+</button>
+</div>
+<div class="pt-sm border-t border-white/5 flex items-center justify-center gap-md">
+<span class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Privacy Policy</span>
+<span class="w-1 h-1 rounded-full bg-white/20"></span>
+<span class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Terms of Service</span>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-8 left-0 right-0 z-50 flex justify-around items-center py-3 px-6 bg-surface-container/60 backdrop-blur-xl fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-lg rounded-full border border-white/12 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] bg-gradient-to-b from-white/5 to-transparent">
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary/80 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary/80 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-label-sm text-label-sm">Analyse</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary/80 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span>
+<span class="font-label-sm text-label-sm">AI Assistant</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary/80 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="compare_arrows">compare_arrows</span>
+<span class="font-label-sm text-label-sm">Compare</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary drop-shadow-[0_0_8px_rgba(195,198,215,0.8)] scale-110 animate-pulse" href="#">
+<span class="material-symbols-outlined" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-label-sm text-label-sm">Profile</span>
+</a>
+</nav>
+</body></html>
