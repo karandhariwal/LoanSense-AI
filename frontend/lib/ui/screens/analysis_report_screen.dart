@@ -5,8 +5,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 import 'package:loansense_ai/ui/screens/chat_screen.dart';
 import 'package:loansense_ai/ui/screens/home_dashboard_screen.dart';
+import 'package:loansense_ai/ui/screens/clause_intelligence_screen.dart';
 
 class LoanAnalysisReportScreen extends StatefulWidget {
   final LoanAnalysisReport? report;
@@ -95,9 +97,86 @@ class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
                         ),
                 ),
               ),
+              if (!_controller.isLoading)
+                Positioned(
+                  bottom: 32,
+                  left: 0,
+                  right: 0,
+                  child: _buildBottomNavBar(context),
+                ),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildBottomNavBar(BuildContext context) {
+    return Center(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(9999),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            constraints: const BoxConstraints(maxWidth: 512),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF201F20).withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(9999),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white.withValues(alpha: 0.05),
+                  Colors.transparent,
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.8),
+                  blurRadius: 32,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const HomeDashboardScreen()),
+                      (route) => false,
+                    );
+                  },
+                  child: const _NavBarItem(icon: Icons.home_outlined, label: 'Home'),
+                ),
+                const _NavBarItem(
+                  icon: Icons.analytics,
+                  label: 'Analyse',
+                  isSelected: true,
+                ),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ClauseIntelligenceScreen(
+                          report: _controller.report,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const _NavBarItem(icon: Icons.smart_toy_outlined, label: 'AI Assistant'),
+                ),
+                const _NavBarItem(icon: Icons.compare_arrows_outlined, label: 'Compare'),
+                const _NavBarItem(icon: Icons.person_outline, label: 'Profile'),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -138,340 +217,7 @@ class LoanAnalysisController extends ChangeNotifier {
   }
 }
 
-class LoanAnalysisReport {
-  final String loanId;
-  final String lenderName;
-  final String productName;
-  final double healthScore;
-  final String healthSummary;
-  final String detailedSummary;
-  final String simpleSummary;
-  final String recommendedAction;
-  final String contractClarity;
-  final List<MetricData> metrics;
-  final List<RiskAlertData> alerts;
-  final List<SourceReference> sources;
-  final List<CostSlice> costSlices;
-  final List<EmiPoint> emiSeries;
-  final List<ClauseChip> clauseChips;
-  final List<LoanExtraction> extractions;
-
-  const LoanAnalysisReport({
-    required this.loanId,
-    required this.lenderName,
-    required this.productName,
-    required this.healthScore,
-    required this.healthSummary,
-    required this.detailedSummary,
-    required this.simpleSummary,
-    required this.recommendedAction,
-    required this.contractClarity,
-    required this.metrics,
-    required this.alerts,
-    required this.sources,
-    required this.costSlices,
-    required this.emiSeries,
-    required this.clauseChips,
-    required this.extractions,
-  });
-
-  factory LoanAnalysisReport.mock({required String loanId}) {
-    return LoanAnalysisReport(
-      loanId: loanId,
-      lenderName: 'Northstar Finance',
-      productName: 'Variable Term Loan',
-      healthScore: 6.8,
-      healthSummary:
-          'Your loan profile shows moderate structural health with specific optimizations required.',
-      detailedSummary:
-          'This loan contains moderate financial risk due to high foreclosure penalties and an aggressive variable interest reset in Year 5. While the initial APR is competitive, the long-term compounding of hidden service fees adds approximately 3.2% to your effective cost.',
-      simpleSummary:
-          'The loan is usable, but there are several cost traps. The biggest issues are the pre-payment penalty, the rate reset in year 5, and fees that quietly raise your total cost.',
-      recommendedAction: 'Refinance in 24 months',
-      contractClarity: '92% Transparent',
-      metrics: const [
-        MetricData(
-          id: 'rate',
-          label: 'Interest Rate',
-          value: '8.45%',
-          valueSuffix: '↑ 0.2',
-          accent: _LensColors.primary,
-          icon: Icons.percent_rounded,
-          secondaryLabel: 'APR is competitive, but resets later.',
-          detailTitle: 'Interest Rate Exposure',
-          detailBody:
-              'The current rate is attractive, but the contract includes a variable reset in Year 5. If macro rates move higher, the payment curve changes quickly.',
-        ),
-        MetricData(
-          id: 'hidden',
-          label: 'Hidden Charges',
-          value: '\$1,240',
-          valueSuffix: 'Verify',
-          accent: _LensColors.tertiary,
-          icon: Icons.payments_outlined,
-          secondaryLabel: 'Service fees are layered into the schedule.',
-          detailTitle: 'Hidden Charges',
-          detailBody:
-              'The extraction engine found documentation, processing, and clause-linked service costs that do not appear in the headline APR.',
-        ),
-        MetricData(
-          id: 'total',
-          label: 'Total Repayment',
-          value: '\$412,800',
-          valueSuffix: 'Full term',
-          accent: _LensColors.primary,
-          icon: Icons.account_balance_wallet_outlined,
-          secondaryLabel: 'Includes scheduled installments only.',
-          detailTitle: 'Repayment Projection',
-          detailBody:
-              'The repayment projection assumes the current amortization schedule without early closure or refinancing.',
-        ),
-        MetricData(
-          id: 'risk',
-          label: 'Foreclosure Risk',
-          value: 'High',
-          valueSuffix: 'Alert',
-          accent: _LensColors.error,
-          icon: Icons.warning_amber_rounded,
-          secondaryLabel: 'Penalty terms are above market average.',
-          detailTitle: 'Foreclosure Exposure',
-          detailBody:
-              'Early closure penalties are 1.5% above the market benchmark, which makes voluntary exit materially expensive.',
-          isRisk: true,
-        ),
-      ],
-      alerts: const [
-        RiskAlertData(
-          id: 'penalty',
-          title: 'Pre-payment Penalty',
-          body:
-              'A 4% penalty applies if loan is closed before month 36. This is 1.5% above market average.',
-          severity: 'High',
-          accent: _LensColors.error,
-          page: 'Page 12',
-          clause: 'Clause 8.4',
-          explanation:
-              'This clause increases exit cost and reduces refinance flexibility during the early amortization phase.',
-        ),
-        RiskAlertData(
-          id: 'variable',
-          title: 'Variable Rate Cap',
-          body:
-              'Interest cap is set at 12%, posing a risk if central bank rates continue trending upwards.',
-          severity: 'Medium',
-          accent: _LensColors.tertiary,
-          page: 'Page 9',
-          clause: 'Clause 5.1',
-          explanation:
-              'The cap protects against unlimited escalation, but it still leaves meaningful payment volatility.',
-        ),
-        RiskAlertData(
-          id: 'docs',
-          title: 'Documentation Fee',
-          body:
-              'Processing fees are waived for your current credit tier. Saving: \$450.',
-          severity: 'Verified',
-          accent: _LensColors.primary,
-          page: 'Page 3',
-          clause: 'Fee schedule',
-          explanation:
-              'This item is favorable. The parser marked it as waived, so it does not materially affect the loan price.',
-        ),
-        RiskAlertData(
-          id: 'reset',
-          title: 'Rate Reset Clause',
-          body:
-              'Year 5 reset is tied to a benchmark index with a 250 bps margin add-on.',
-          severity: 'High',
-          accent: Color(0xFFFFB8B0),
-          page: 'Page 18',
-          clause: 'Clause 11.2',
-          explanation:
-              'If the benchmark rises, the effective monthly installment can jump sharply after the reset date.',
-        ),
-      ],
-      sources: const [
-        SourceReference(
-          page: 'Page 3',
-          title: 'Fee Schedule',
-          note: 'Documentation fee and waiver condition.',
-        ),
-        SourceReference(
-          page: 'Page 9',
-          title: 'Rate Adjustment',
-          note: 'Variable cap and reset benchmark.',
-        ),
-        SourceReference(
-          page: 'Page 12',
-          title: 'Early Exit Terms',
-          note: 'Pre-payment penalty mechanics.',
-        ),
-        SourceReference(
-          page: 'Page 18',
-          title: 'Reset Clause',
-          note: 'Year 5 interest recalculation.',
-        ),
-      ],
-      costSlices: const [
-        CostSlice(label: 'Principal', value: 250000, ratio: 0.60, accent: _LensColors.primary),
-        CostSlice(label: 'Interest', value: 162800, ratio: 0.35, accent: _LensColors.outline),
-        CostSlice(label: 'Hidden Costs', value: 12400, ratio: 0.05, accent: _LensColors.error),
-      ],
-      emiSeries: const [
-        EmiPoint(month: 1, principal: 14000, interest: 7800),
-        EmiPoint(month: 2, principal: 14500, interest: 7300),
-        EmiPoint(month: 3, principal: 15000, interest: 6900),
-        EmiPoint(month: 4, principal: 15400, interest: 6500),
-        EmiPoint(month: 5, principal: 15900, interest: 6100),
-        EmiPoint(month: 6, principal: 16300, interest: 5700),
-        EmiPoint(month: 7, principal: 16750, interest: 5300),
-        EmiPoint(month: 8, principal: 17100, interest: 4900),
-        EmiPoint(month: 9, principal: 17500, interest: 4500),
-        EmiPoint(month: 10, principal: 17950, interest: 4100),
-        EmiPoint(month: 11, principal: 18450, interest: 3700),
-        EmiPoint(month: 12, principal: 18900, interest: 3300),
-      ],
-      clauseChips: const [
-        ClauseChip(label: 'Rate reset in Year 5', accent: _LensColors.error),
-        ClauseChip(label: 'Penalty 4% before month 36', accent: _LensColors.error),
-        ClauseChip(label: 'APR baseline 8.45%', accent: _LensColors.primary),
-      ],
-      extractions: const [
-        LoanExtraction(label: 'Sanction Amount', value: '\$250,000'),
-        LoanExtraction(label: 'Reset Window', value: 'Year 5'),
-        LoanExtraction(label: 'Penalty Window', value: 'Month 1-36'),
-        LoanExtraction(label: 'Effective Cost Uplift', value: '+3.2%'),
-      ],
-    );
-  }
-
-  factory LoanAnalysisReport.fromJson(Map<String, dynamic> json) {
-    return LoanAnalysisReport(
-      loanId: json['loanId']?.toString() ?? 'loan-unknown',
-      lenderName: json['lenderName']?.toString() ?? 'Unknown lender',
-      productName: json['productName']?.toString() ?? 'Loan product',
-      healthScore: (json['healthScore'] as num?)?.toDouble() ?? 0,
-      healthSummary: json['healthSummary']?.toString() ?? '',
-      detailedSummary: json['detailedSummary']?.toString() ?? '',
-      simpleSummary: json['simpleSummary']?.toString() ?? '',
-      recommendedAction: json['recommendedAction']?.toString() ?? '',
-      contractClarity: json['contractClarity']?.toString() ?? '',
-      metrics: const [],
-      alerts: const [],
-      sources: const [],
-      costSlices: const [],
-      emiSeries: const [],
-      clauseChips: const [],
-      extractions: const [],
-    );
-  }
-}
-
-class MetricData {
-  final String id;
-  final String label;
-  final String value;
-  final String valueSuffix;
-  final Color accent;
-  final IconData icon;
-  final String secondaryLabel;
-  final String detailTitle;
-  final String detailBody;
-  final bool isRisk;
-
-  const MetricData({
-    required this.id,
-    required this.label,
-    required this.value,
-    required this.valueSuffix,
-    required this.accent,
-    required this.icon,
-    required this.secondaryLabel,
-    required this.detailTitle,
-    required this.detailBody,
-    this.isRisk = false,
-  });
-}
-
-class RiskAlertData {
-  final String id;
-  final String title;
-  final String body;
-  final String severity;
-  final Color accent;
-  final String page;
-  final String clause;
-  final String explanation;
-
-  const RiskAlertData({
-    required this.id,
-    required this.title,
-    required this.body,
-    required this.severity,
-    required this.accent,
-    required this.page,
-    required this.clause,
-    required this.explanation,
-  });
-}
-
-class SourceReference {
-  final String page;
-  final String title;
-  final String note;
-
-  const SourceReference({
-    required this.page,
-    required this.title,
-    required this.note,
-  });
-}
-
-class CostSlice {
-  final String label;
-  final double value;
-  final double ratio;
-  final Color accent;
-
-  const CostSlice({
-    required this.label,
-    required this.value,
-    required this.ratio,
-    required this.accent,
-  });
-}
-
-class EmiPoint {
-  final int month;
-  final double principal;
-  final double interest;
-
-  const EmiPoint({
-    required this.month,
-    required this.principal,
-    required this.interest,
-  });
-}
-
-class ClauseChip {
-  final String label;
-  final Color accent;
-
-  const ClauseChip({
-    required this.label,
-    required this.accent,
-  });
-}
-
-class LoanExtraction {
-  final String label;
-  final String value;
-
-  const LoanExtraction({
-    required this.label,
-    required this.value,
-  });
-}
+// Shared model classes extracted to lib/data/models/loan_analysis_report.dart
 
 class _LensColors {
   static const background = Color(0xFF131314);
@@ -480,7 +226,6 @@ class _LensColors {
   static const primary = Color(0xFFC3C6D7);
   static const secondary = Color(0xFFC6C6CD);
   static const tertiary = Color(0xFFDBC3A8);
-  static const outline = Color(0xFF909096);
   static const onSurface = Color(0xFFE5E2E3);
   static const onSurfaceVariant = Color(0xFFC7C6CC);
   static const onPrimary = Color(0xFF2C303D);
@@ -523,6 +268,7 @@ class _ReportScrollView extends StatelessWidget {
               _HeroScoreCard(
                 report: report,
                 controller: controller,
+                ambientController: ambientController,
                 onOpenSources: () => _openReportSheet(context, report),
               ),
               const SizedBox(height: 20),
@@ -582,12 +328,15 @@ class _TopAppBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: _LensColors.background.withValues(alpha: 0.78),
             border: Border(
-              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+              bottom: BorderSide(
+                color: Colors.white.withValues(alpha: 0.05),
+                width: 0.8,
+              ),
             ),
             boxShadow: [
               BoxShadow(
-                color: _LensColors.primary.withValues(alpha: 0.10),
-                blurRadius: 15,
+                color: _LensColors.primary.withValues(alpha: 0.08),
+                blurRadius: 20,
               ),
             ],
           ),
@@ -596,27 +345,42 @@ class _TopAppBar extends StatelessWidget {
               GestureDetector(
                 onTap: onGoHome,
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: 44,
+                  height: 44,
+                  padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: _LensColors.primary.withValues(alpha: 0.18),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        _LensColors.primary.withValues(alpha: 0.45),
+                        Colors.transparent,
+                        _LensColors.primary.withValues(alpha: 0.12),
+                      ],
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: _LensColors.primary.withValues(alpha: 0.08),
-                        blurRadius: 16,
+                        color: _LensColors.primary.withValues(alpha: 0.12),
+                        blurRadius: 14,
+                        spreadRadius: 0.5,
                       ),
                     ],
                   ),
-                  child: ClipOval(
-                    child: Image.network(
-                      'https://lh3.googleusercontent.com/aida-public/AB6AXuD-zGQQ_at1eS8nA9kwpdIGLq5H_dAvAHn4CsOkvw3pt5NF0GiLRX_z5ZZJSWhI2ClwyRw0h8eFk_4HHvYzkA_8946tZZ0KlglqQPW4Mbnv4rlwGro7u0oYH1A1qG1xCMK16IwzjnVg0tQ5BF_SRFoAFypFG3HfYksRzy9YBuRpEXnRiJgzcE_JuQU9L84E5PrXmFaE0THfYJkfLeqYTo_LMQEFmMy8EdPL8jyISj9Qymi6Qjcf6xzpEI6gTHbck94snxAh_YYSiQ',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: _LensColors.surface,
-                        child: const Icon(Icons.person, color: _LensColors.primary),
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _LensColors.background,
+                    ),
+                    padding: const EdgeInsets.all(1.5),
+                    child: ClipOval(
+                      child: Image.network(
+                        'https://lh3.googleusercontent.com/aida-public/AB6AXuD-zGQQ_at1eS8nA9kwpdIGLq5H_dAvAHn4CsOkvw3pt5NF0GiLRX_z5ZZJSWhI2ClwyRw0h8eFk_4HHvYzkA_8946tZZ0KlglqQPW4Mbnv4rlwGro7u0oYH1A1qG1xCMK16IwzjnVg0tQ5BF_SRFoAFypFG3HfYksRzy9YBuRpEXnRiJgzcE_JuQU9L84E5PrXmFaE0THfYJkfLeqYTo_LMQEFmMy8EdPL8jyISj9Qymi6Qjcf6xzpEI6gTHbck94snxAh_YYSiQ',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: _LensColors.surface,
+                          child: const Icon(Icons.person, color: _LensColors.primary),
+                        ),
                       ),
                     ),
                   ),
@@ -691,29 +455,33 @@ class _HeroScoreCard extends StatelessWidget {
   final LoanAnalysisReport report;
   final LoanAnalysisController controller;
   final VoidCallback onOpenSources;
+  final AnimationController? ambientController;
 
   const _HeroScoreCard({
     required this.report,
     required this.controller,
     required this.onOpenSources,
+    this.ambientController,
   });
 
   @override
   Widget build(BuildContext context) {
     return _GlassCard(
       onTap: onOpenSources,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      hasScanline: true,
+      ambientController: ambientController,
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Align(
+          const Align(
             alignment: Alignment.centerLeft,
             child: _PillLabel(
               label: 'AI ANALYSIS COMPLETE',
               accent: _LensColors.primary,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0, end: report.healthScore / 10),
             duration: const Duration(milliseconds: 1300),
@@ -722,54 +490,61 @@ class _HeroScoreCard extends StatelessWidget {
               return SizedBox(
                 width: 178,
                 height: 178,
-                child: CustomPaint(
-                  painter: _ScoreRingPainter(
-                    progress: progress,
-                    glow: 0.9,
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ShaderMask(
-                          shaderCallback: (rect) => const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFFE5E2E3),
-                              Color(0xFFB7B9C6),
-                            ],
-                          ).createShader(rect),
-                          child: Text(
-                            report.healthScore.toStringAsFixed(1),
-                            style: GoogleFonts.spaceGrotesk(
-                              fontSize: 48,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                              height: 1.0,
+                child: AnimatedBuilder(
+                  animation: ambientController ?? kAlwaysDismissedAnimation,
+                  builder: (context, _) {
+                    final ambientVal = ambientController?.value ?? 0.5;
+                    return CustomPaint(
+                      painter: _ScoreRingPainter(
+                        progress: progress,
+                        glow: 0.75 + 0.25 * sin(ambientVal * pi),
+                        ambientValue: ambientVal,
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ShaderMask(
+                              shaderCallback: (rect) => const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFFFFFFFF),
+                                  Color(0xFFB7B9C6),
+                                ],
+                              ).createShader(rect),
+                              child: Text(
+                                report.healthScore.toStringAsFixed(1),
+                                style: GoogleFonts.spaceGrotesk(
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  height: 1.0,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'HEALTH SCORE',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white.withValues(alpha: 0.4),
+                                letterSpacing: 1.6,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'HEALTH SCORE',
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: _LensColors.onSurfaceVariant,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 ),
               );
             },
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 240),
+            constraints: const BoxConstraints(maxWidth: 260),
             child: Text(
               controller.showSimpleExplanation
                   ? report.simpleSummary
@@ -782,13 +557,13 @@ class _HeroScoreCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Container(
-            height: 1,
+            height: 0.8,
             width: double.infinity,
-            color: Colors.white.withValues(alpha: 0.08),
+            color: Colors.white.withValues(alpha: 0.06),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
@@ -871,55 +646,77 @@ class _MetricCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(
-            data.icon,
-            color: data.accent,
-            size: 20,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(
+                data.icon,
+                color: data.accent,
+                size: 20,
+              ),
+              Container(
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: data.accent.withValues(alpha: 0.35),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 data.label.toUpperCase(),
                 style: GoogleFonts.inter(
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: FontWeight.w600,
-                  color: _LensColors.onSurfaceVariant,
-                  letterSpacing: 0.6,
+                  color: Colors.white.withValues(alpha: 0.35),
+                  letterSpacing: 1.3,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                data.value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  color:
-                      data.isRisk ? _LensColors.error : _LensColors.onSurface,
-                  height: 1.0,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                data.valueSuffix,
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color:
-                      data.isRisk ? _LensColors.error : _LensColors.onSurfaceVariant,
-                ),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Expanded(
+                    child: Text(
+                      data.value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 25,
+                        fontWeight: FontWeight.w700,
+                        color:
+                            data.isRisk ? _LensColors.error : _LensColors.onSurface,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                  if (data.valueSuffix.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    _MicroGlassBadge(
+                      label: data.valueSuffix,
+                      isRisk: data.isRisk,
+                      accent: data.accent,
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
+          const SizedBox(height: 8),
           Text(
             data.secondaryLabel,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
-              fontSize: 10,
-              height: 1.2,
-              color: _LensColors.onSurfaceVariant.withValues(alpha: 0.88),
+              fontSize: 10.5,
+              height: 1.3,
+              color: Colors.white.withValues(alpha: 0.52),
             ),
           ),
         ],
@@ -994,12 +791,15 @@ class _InsightCard extends StatelessWidget {
               AnimatedSize(
                 duration: const Duration(milliseconds: 240),
                 curve: Curves.easeOutCubic,
-                child: Text(
-                  '“${summary}”',
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    height: 1.65,
-                    color: _LensColors.onSurface,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 320),
+                  child: Text(
+                    '“$summary”',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      height: 1.65,
+                      color: _LensColors.onSurface,
+                    ),
                   ),
                 ),
               ),
@@ -1539,7 +1339,7 @@ class _LoadingShell extends StatelessWidget {
         const SizedBox(height: 20),
         _LoadingCard(height: 256, controller: controller),
         const SizedBox(height: 16),
-        _LoadingGrid(),
+        const _LoadingGrid(),
         const SizedBox(height: 16),
         _LoadingCard(height: 380, controller: controller),
         const SizedBox(height: 16),
@@ -1554,21 +1354,21 @@ class _TopSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return const Row(
       children: [
-        const _SkeletonCircle(size: 40),
-        const SizedBox(width: 12),
+        _SkeletonCircle(size: 40),
+        SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               _SkeletonLine(widthFactor: 0.42, height: 18),
               SizedBox(height: 8),
               _SkeletonLine(widthFactor: 0.22, height: 10),
             ],
           ),
         ),
-        const _SkeletonCircle(size: 22),
+        _SkeletonCircle(size: 22),
       ],
     );
   }
@@ -1622,12 +1422,12 @@ class _LoadingGrid extends StatelessWidget {
       childAspectRatio: 0.94,
       children: List.generate(
         4,
-        (index) => _GlassCard(
-          padding: const EdgeInsets.all(14),
+        (index) => const _GlassCard(
+          padding: EdgeInsets.all(14),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               _SkeletonCircle(size: 20),
               _SkeletonLine(widthFactor: 0.55, height: 10),
               _SkeletonLine(widthFactor: 0.72, height: 24),
@@ -1696,8 +1496,8 @@ class _AmbientBackdrop extends StatelessWidget {
         return Stack(
           children: [
             Positioned(
-              top: -120,
-              left: -100,
+              top: -120 + 20 * sin(value * 2 * pi),
+              left: -100 + 15 * cos(value * 2 * pi),
               child: Container(
                 width: 280,
                 height: 280,
@@ -1713,8 +1513,8 @@ class _AmbientBackdrop extends StatelessWidget {
               ),
             ),
             Positioned(
-              top: 120,
-              right: -80,
+              top: 120 + 30 * cos(value * 2 * pi),
+              right: -80 + 20 * sin(value * 2 * pi),
               child: Container(
                 width: 220,
                 height: 220,
@@ -1730,8 +1530,8 @@ class _AmbientBackdrop extends StatelessWidget {
               ),
             ),
             Positioned(
-              bottom: -140,
-              right: -120,
+              bottom: -140 + 25 * sin(value * 2 * pi),
+              right: -120 + 15 * cos(value * 2 * pi),
               child: Container(
                 width: 320,
                 height: 320,
@@ -1749,7 +1549,7 @@ class _AmbientBackdrop extends StatelessWidget {
             Positioned.fill(
               child: IgnorePointer(
                 child: Opacity(
-                  opacity: 0.03,
+                  opacity: 0.035,
                   child: CustomPaint(
                     painter: _NoisePainter(),
                   ),
@@ -1769,6 +1569,8 @@ class _GlassCard extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? borderColor;
   final Color? leftBorderColor;
+  final AnimationController? ambientController;
+  final bool hasScanline;
 
   const _GlassCard({
     required this.child,
@@ -1776,6 +1578,8 @@ class _GlassCard extends StatelessWidget {
     this.onTap,
     this.borderColor,
     this.leftBorderColor,
+    this.ambientController,
+    this.hasScanline = false,
   });
 
   @override
@@ -1785,47 +1589,59 @@ class _GlassCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: radius,
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Material(
             color: Colors.transparent,
             child: InkWell(
               onTap: onTap,
               borderRadius: radius,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _LensColors.surfaceContainer.withValues(alpha: 0.60),
-                  borderRadius: radius,
-                  border: Border(
-                    top: BorderSide(
-                      color:
-                          borderColor ?? Colors.white.withValues(alpha: 0.12),
+              child: Stack(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _LensColors.surfaceContainer.withValues(alpha: 0.58),
+                      borderRadius: radius,
+                      boxShadow: [
+                        BoxShadow(
+                          color: _LensColors.primary.withValues(alpha: 0.03),
+                          blurRadius: 20,
+                          spreadRadius: -2,
+                        ),
+                      ],
                     ),
-                    right: BorderSide(
-                      color:
-                          borderColor ?? Colors.white.withValues(alpha: 0.12),
-                    ),
-                    bottom: BorderSide(
-                      color:
-                          borderColor ?? Colors.white.withValues(alpha: 0.12),
-                    ),
-                    left: BorderSide(
-                      color: leftBorderColor ??
-                          borderColor ??
-                          Colors.white.withValues(alpha: 0.12),
-                      width: leftBorderColor == null ? 1 : 4,
+                    child: Padding(
+                      padding: padding,
+                      child: child,
                     ),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _LensColors.primary.withValues(alpha: 0.04),
-                      blurRadius: 18,
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _GlassBorderPainter(
+                          strokeWidth: 1.0,
+                          radius: const Radius.circular(12),
+                          borderColor: borderColor,
+                          leftBorderColor: leftBorderColor,
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-                child: Padding(
-                  padding: padding,
-                  child: child,
-                ),
+                  ),
+                  if (hasScanline && ambientController != null)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: AnimatedBuilder(
+                          animation: ambientController!,
+                          builder: (context, _) {
+                            return CustomPaint(
+                              painter: _ScanlinePainter(
+                                progress: ambientController!.value,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -1835,7 +1651,7 @@ class _GlassCard extends StatelessWidget {
   }
 }
 
-class _PillLabel extends StatelessWidget {
+class _PillLabel extends StatefulWidget {
   final String label;
   final Color accent;
 
@@ -1845,21 +1661,213 @@ class _PillLabel extends StatelessWidget {
   });
 
   @override
+  State<_PillLabel> createState() => _PillLabelState();
+}
+
+class _PillLabelState extends State<_PillLabel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.05),
+        color: widget.accent.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(9999),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
+        border: Border.all(
+          color: widget.accent.withValues(alpha: 0.20),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: widget.accent.withValues(alpha: 0.04),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, _) {
+              return Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.accent.withValues(
+                    alpha: 0.45 + _pulseController.value * 0.55,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: widget.accent.withValues(alpha: 0.85),
+                      blurRadius: 3 + _pulseController.value * 5,
+                      spreadRadius: _pulseController.value * 1.0,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 6),
+          Text(
+            widget.label,
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: widget.accent,
+              letterSpacing: 1.1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlassBorderPainter extends CustomPainter {
+  final double strokeWidth;
+  final Radius radius;
+  final Color? borderColor;
+  final Color? leftBorderColor;
+
+  _GlassBorderPainter({
+    required this.strokeWidth,
+    required this.radius,
+    this.borderColor,
+    this.leftBorderColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, radius);
+    final outerRect = rrect.deflate(strokeWidth / 2);
+
+    final paint = Paint()
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          (borderColor ?? Colors.white).withValues(alpha: borderColor != null ? 0.32 : 0.18),
+          (borderColor ?? Colors.white).withValues(alpha: borderColor != null ? 0.18 : 0.08),
+          (borderColor ?? Colors.white).withValues(alpha: borderColor != null ? 0.08 : 0.02),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(rect);
+
+    canvas.drawRRect(outerRect, paint);
+
+    if (leftBorderColor != null) {
+      final leftPaint = Paint()
+        ..strokeWidth = 3.5
+        ..color = leftBorderColor!
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+
+      final path = Path()
+        ..moveTo(0, size.height - radius.y)
+        ..lineTo(0, radius.y)
+        ..arcToPoint(Offset(radius.x, 0), radius: radius, clockwise: true);
+
+      canvas.drawPath(path, leftPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlassBorderPainter oldDelegate) => false;
+}
+
+class _ScanlinePainter extends CustomPainter {
+  final double progress;
+
+  _ScanlinePainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final y = progress * size.height;
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.transparent,
+          _LensColors.primary.withValues(alpha: 0.08),
+          _LensColors.primary.withValues(alpha: 0.22),
+          _LensColors.primary.withValues(alpha: 0.08),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.4, 0.5, 0.6, 1.0],
+      ).createShader(Rect.fromLTWH(0, y - 10, size.width, 20));
+
+    canvas.drawRect(Rect.fromLTWH(0, y - 10, size.width, 20), paint);
+
+    final linePaint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          Colors.transparent,
+          Colors.white.withValues(alpha: 0.60),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromLTWH(0, y - 0.75, size.width, 1.5));
+    canvas.drawRect(Rect.fromLTWH(0, y - 0.75, size.width, 1.5), linePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScanlinePainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
+class _MicroGlassBadge extends StatelessWidget {
+  final String label;
+  final bool isRisk;
+  final Color accent;
+
+  const _MicroGlassBadge({
+    required this.label,
+    required this.isRisk,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color badgeColor = isRisk ? _LensColors.error : accent;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: badgeColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: badgeColor.withValues(alpha: 0.22),
+          width: 0.8,
+        ),
       ),
       child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 10,
+        label.toUpperCase(),
+        style: GoogleFonts.spaceGrotesk(
+          fontSize: 9,
           fontWeight: FontWeight.w700,
-          color: accent,
-          letterSpacing: 0.6,
+          color: badgeColor,
+          letterSpacing: 0.8,
         ),
       ),
     );
@@ -2072,13 +2080,27 @@ class _NoisePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = Colors.white;
     final random = Random(7);
-    for (var i = 0; i < 120; i++) {
+    
+    // Draw 40 coordinate micro dots/stars
+    for (var i = 0; i < 40; i++) {
       final x = random.nextDouble() * size.width;
       final y = random.nextDouble() * size.height;
       canvas.drawRect(
         Rect.fromLTWH(x, y, 1, 1),
         paint..color = Colors.white.withValues(alpha: random.nextDouble() * 0.08),
       );
+    }
+
+    // Draw high-tech coordinate micro grid (0.6px size dots) spaced 28px
+    final gridPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.02)
+      ..strokeWidth = 1;
+    
+    const double spacing = 28.0;
+    for (double x = 0; x < size.width; x += spacing) {
+      for (double y = 0; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), 0.6, gridPaint);
+      }
     }
   }
 
@@ -2089,36 +2111,68 @@ class _NoisePainter extends CustomPainter {
 class _ScoreRingPainter extends CustomPainter {
   final double progress;
   final double glow;
+  final double ambientValue;
 
   const _ScoreRingPainter({
     required this.progress,
     required this.glow,
+    required this.ambientValue,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
-    final radius = min(size.width, size.height) / 2 - 8;
+    final radius = min(size.width, size.height) / 2 - 12;
     final rect = Rect.fromCircle(center: center, radius: radius);
 
+    // 1. Concentric Micro-Tick Rings (instrument aesthetic)
+    final tickPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..color = Colors.white.withValues(alpha: 0.05 + 0.03 * sin(ambientValue * pi));
+    canvas.drawCircle(center, radius + 10, tickPaint);
+    canvas.drawCircle(center, radius - 8, tickPaint);
+
+    // 2. Translucent Track Background Line
     final trackPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 8
+      ..strokeWidth = 6
       ..strokeCap = StrokeCap.round
-      ..color = Colors.white.withValues(alpha: 0.08);
+      ..color = Colors.white.withValues(alpha: 0.06);
     canvas.drawArc(rect, 0, 2 * pi, false, trackPaint);
 
-    final arcPaint = Paint()
+    // 3. Layered Ambient Glow Arc (drawn underneath)
+    final glowPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 8
+      ..strokeWidth = 14
       ..strokeCap = StrokeCap.round
       ..shader = const SweepGradient(
         colors: [
           _LensColors.primary,
-          Color(0xFFF0F1F6),
+          Color(0xFFE5E2E3),
         ],
       ).createShader(rect)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 * glow);
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 * glow);
+
+    canvas.drawArc(
+      rect,
+      -pi / 2,
+      max(0.001, 2 * pi * progress),
+      false,
+      glowPaint..color = _LensColors.primary.withValues(alpha: 0.18 * glow),
+    );
+
+    // 4. Sharp Crisp Progress Arc (drawn on top, no blur)
+    final arcPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round
+      ..shader = const SweepGradient(
+        colors: [
+          _LensColors.primary,
+          Color(0xFFE5E2E3),
+        ],
+      ).createShader(rect);
 
     canvas.drawArc(
       rect,
@@ -2127,11 +2181,27 @@ class _ScoreRingPainter extends CustomPainter {
       false,
       arcPaint,
     );
+
+    // 5. Glowing active cursor node at the tip of the progress sweep
+    if (progress > 0.0) {
+      final tipAngle = -pi / 2 + 2 * pi * progress;
+      final tipOffset = center + Offset(cos(tipAngle) * radius, sin(tipAngle) * radius);
+      
+      final cursorGlow = Paint()
+        ..color = _LensColors.primary.withValues(alpha: 0.65 * glow)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 * glow);
+      canvas.drawCircle(tipOffset, 8 * (0.9 + 0.2 * sin(ambientValue * pi)), cursorGlow);
+
+      final cursorCore = Paint()..color = Colors.white;
+      canvas.drawCircle(tipOffset, 3, cursorCore);
+    }
   }
 
   @override
   bool shouldRepaint(covariant _ScoreRingPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.glow != glow;
+    return oldDelegate.progress != progress ||
+        oldDelegate.glow != glow ||
+        oldDelegate.ambientValue != ambientValue;
   }
 }
 
@@ -2191,7 +2261,7 @@ class _EmiChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (series.isEmpty) return;
 
-    final padding = 16.0;
+    const padding = 16.0;
     final plotWidth = size.width - padding * 2;
     final plotHeight = size.height - padding * 2;
     final baseY = size.height - padding;
@@ -2612,14 +2682,37 @@ Future<void> _openAlertSheet(
               ),
             ),
             const SizedBox(height: 18),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
               children: [
-                _CompactChip(text: alert.page, accent: alert.accent),
-                _CompactChip(text: alert.clause, accent: _LensColors.primary),
-                _CompactChip(text: report.loanId, accent: _LensColors.tertiary),
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _CompactChip(text: alert.page, accent: alert.accent),
+                      _CompactChip(text: alert.clause, accent: _LensColors.primary),
+                      _CompactChip(text: report.loanId, accent: _LensColors.tertiary),
+                    ],
+                  ),
+                ),
               ],
+            ),
+            const SizedBox(height: 24),
+            _PrimaryPillButton(
+              label: 'Open Clause Console',
+              icon: Icons.analytics_outlined,
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ClauseIntelligenceScreen(
+                      report: report,
+                      targetClauseId: alert.id,
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -2892,4 +2985,52 @@ Future<void> _openCompareSheet(
       );
     },
   );
+}
+
+// ─── Floating Nav Item for Bottom Navigation Bar ───
+class _NavBarItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+
+  const _NavBarItem({
+    required this.icon,
+    required this.label,
+    this.isSelected = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isSelected
+        ? _LensColors.primary
+        : _LensColors.onSurfaceVariant.withValues(alpha: 0.7);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          color: color,
+          size: 24,
+          shadows: isSelected
+              ? [
+                  BoxShadow(
+                    color: _LensColors.primary.withValues(alpha: 0.8),
+                    blurRadius: 8,
+                  ),
+                ]
+              : null,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
 }

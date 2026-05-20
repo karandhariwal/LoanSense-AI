@@ -2,6 +2,8 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:loansense_ai/data/models/loan_analysis_report.dart';
+import 'package:loansense_ai/ui/screens/analysis_report_screen.dart';
 
 // ─── Color Palette (from reference design tokens) ───
 class _ScanColors {
@@ -28,7 +30,16 @@ class _AnalysisStep {
 
 // ─── Main Screen ───
 class UploadAiScanScreen extends StatefulWidget {
-  const UploadAiScanScreen({super.key});
+  final String fileName;
+  final double fileSizeMb;
+  final String? filePath;
+
+  const UploadAiScanScreen({
+    super.key,
+    required this.fileName,
+    required this.fileSizeMb,
+    this.filePath,
+  });
 
   @override
   State<UploadAiScanScreen> createState() => _UploadAiScanScreenState();
@@ -42,19 +53,19 @@ class _UploadAiScanScreenState extends State<UploadAiScanScreen>
   late final AnimationController _floatController;
   late final AnimationController _glowController;
 
-  final List<_AnalysisStep> _steps = const [
-    _AnalysisStep(label: 'Extracting clauses...', status: StepStatus.complete),
-    _AnalysisStep(
-        label: 'Analysing repayment structure...', status: StepStatus.complete),
-    _AnalysisStep(
-        label: 'Detecting hidden penalties...', status: StepStatus.processing),
-    _AnalysisStep(
-        label: 'Generating AI insights...', status: StepStatus.pending),
-  ];
+  late List<_AnalysisStep> _steps;
 
   @override
   void initState() {
     super.initState();
+    
+    _steps = [
+      const _AnalysisStep(label: 'Extracting loan terms...', status: StepStatus.pending),
+      const _AnalysisStep(label: 'Analysing hidden clauses...', status: StepStatus.pending),
+      const _AnalysisStep(label: 'Calculating real loan cost...', status: StepStatus.pending),
+      const _AnalysisStep(label: 'Generating AI insights...', status: StepStatus.pending),
+    ];
+
     _scanlineController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -67,8 +78,71 @@ class _UploadAiScanScreenState extends State<UploadAiScanScreen>
 
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..forward();
+      duration: const Duration(seconds: 5), // Premium 5-second scanner simulation
+    );
+
+    _progressController.addListener(() {
+      final val = _progressController.value;
+      setState(() {
+        if (val < 0.25) {
+          _steps[0] = const _AnalysisStep(label: 'Extracting loan terms...', status: StepStatus.processing);
+          _steps[1] = const _AnalysisStep(label: 'Analysing hidden clauses...', status: StepStatus.pending);
+          _steps[2] = const _AnalysisStep(label: 'Calculating real loan cost...', status: StepStatus.pending);
+          _steps[3] = const _AnalysisStep(label: 'Generating AI insights...', status: StepStatus.pending);
+        } else if (val < 0.50) {
+          _steps[0] = const _AnalysisStep(label: 'Extracting loan terms...', status: StepStatus.complete);
+          _steps[1] = const _AnalysisStep(label: 'Analysing hidden clauses...', status: StepStatus.processing);
+          _steps[2] = const _AnalysisStep(label: 'Calculating real loan cost...', status: StepStatus.pending);
+          _steps[3] = const _AnalysisStep(label: 'Generating AI insights...', status: StepStatus.pending);
+        } else if (val < 0.75) {
+          _steps[0] = const _AnalysisStep(label: 'Extracting loan terms...', status: StepStatus.complete);
+          _steps[1] = const _AnalysisStep(label: 'Analysing hidden clauses...', status: StepStatus.complete);
+          _steps[2] = const _AnalysisStep(label: 'Calculating real loan cost...', status: StepStatus.processing);
+          _steps[3] = const _AnalysisStep(label: 'Generating AI insights...', status: StepStatus.pending);
+        } else if (val < 1.0) {
+          _steps[0] = const _AnalysisStep(label: 'Extracting loan terms...', status: StepStatus.complete);
+          _steps[1] = const _AnalysisStep(label: 'Analysing hidden clauses...', status: StepStatus.complete);
+          _steps[2] = const _AnalysisStep(label: 'Calculating real loan cost...', status: StepStatus.complete);
+          _steps[3] = const _AnalysisStep(label: 'Generating AI insights...', status: StepStatus.processing);
+        } else {
+          _steps[0] = const _AnalysisStep(label: 'Extracting loan terms...', status: StepStatus.complete);
+          _steps[1] = const _AnalysisStep(label: 'Analysing hidden clauses...', status: StepStatus.complete);
+          _steps[2] = const _AnalysisStep(label: 'Calculating real loan cost...', status: StepStatus.complete);
+          _steps[3] = const _AnalysisStep(label: 'Generating AI insights...', status: StepStatus.complete);
+        }
+      });
+    });
+
+    _progressController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Future.delayed(const Duration(milliseconds: 850), () {
+          if (mounted) {
+            // Generate deterministic mock report based on file metadata!
+            final report = LoanAnalysisReport.generateMockReport(
+              fileName: widget.fileName,
+              fileSizeMb: widget.fileSizeMb,
+            );
+
+            Navigator.pushReplacement(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    LoanAnalysisReportScreen(report: report),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  );
+                },
+                transitionDuration: const Duration(milliseconds: 650),
+              ),
+            );
+          }
+        });
+      }
+    });
+
+    _progressController.forward();
 
     _floatController = AnimationController(
       vsync: this,
@@ -233,21 +307,43 @@ class _UploadAiScanScreenState extends State<UploadAiScanScreen>
               borderRadius: 12,
               child: Stack(
                 children: [
-                  // Document image
+                  // Dynamic Document Preview Card
                   Positioned.fill(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        'https://lh3.googleusercontent.com/aida-public/AB6AXuCSGTXuoTciNOn71nJlwbxtYss4wy-h7XDdg-WI4fvdXGSygVgPLzwUQhJT8yYf6b1lhq5Mf_ZMLnRJBXKX5S8XpxBBS1spvKN_Q-ivuqOj5sdulYhWloEavEGJNVGvAzvPsvwDjVu9T6U1OQwpHAT_RMKfVcVFu1TYUaOXNDjT7UIFOs0xzS32wPWm66r7dmiX9cEyt9yPOxJnGdpe02LdY1aGt25jkBF25Tq00T8-L6bVKTd8WovVi6zev1V05iLQ2clflPBpgQ',
-                        fit: BoxFit.cover,
-                        color: Colors.white.withValues(alpha: 0.4),
-                        colorBlendMode: BlendMode.modulate,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: _ScanColors.surfaceContainer,
-                          child: Icon(Icons.description_outlined,
-                              size: 64,
-                              color:
-                                  _ScanColors.primary.withValues(alpha: 0.3)),
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        color: _ScanColors.surfaceContainer,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.picture_as_pdf_outlined,
+                              size: 72,
+                              color: Color(0xFFC3C6D7),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              widget.fileName,
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: _ScanColors.onSurface,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "${widget.fileSizeMb.toStringAsFixed(2)} MB",
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: _ScanColors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -393,7 +489,7 @@ class _UploadAiScanScreenState extends State<UploadAiScanScreen>
               animation: _progressController,
               builder: (context, _) {
                 final percent =
-                    (72 * _progressController.value).round().toString();
+                    (100 * _progressController.value).round().toString();
                 return Text(
                   '$percent%',
                   style: GoogleFonts.spaceGrotesk(
@@ -420,7 +516,7 @@ class _UploadAiScanScreenState extends State<UploadAiScanScreen>
             builder: (context, _) {
               return FractionallySizedBox(
                 alignment: Alignment.centerLeft,
-                widthFactor: 0.72 * _progressController.value,
+                widthFactor: _progressController.value,
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(9999),

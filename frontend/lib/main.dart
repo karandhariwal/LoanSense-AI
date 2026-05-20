@@ -82,7 +82,10 @@ class _LoanSenseAppState extends State<LoanSenseApp> {
     } else if (_onboardingStep == 4) {
       return const HomeDashboardScreen();
     } else {
-      return const UploadAiScanScreen();
+      return const UploadAiScanScreen(
+        fileName: 'variable_term_loan_agreement.pdf',
+        fileSizeMb: 2.4,
+      );
     }
   }
 }

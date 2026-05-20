@@ -1,8 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:loansense_ai/ui/screens/analysis_report_screen.dart';
 import 'package:loansense_ai/ui/screens/upload_ai_scan_screen.dart';
+import 'package:loansense_ai/ui/screens/clause_intelligence_screen.dart';
+import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -28,6 +31,145 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
   void dispose() {
     _scanController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUploadPDF() async {
+    try {
+      // 1. Pick PDF File using real FilePicker API compatible with the local version
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      // Guard use of BuildContext across async gap!
+      if (!mounted) return;
+
+      // 2. Handle cancellation properly
+      if (result == null || result.files.isEmpty) {
+        _showFintechToast(
+          context: context,
+          message: "Upload cancelled: No document selected.",
+          isError: true,
+        );
+        return;
+      }
+
+      final PlatformFile file = result.files.first;
+
+      // 3. Validate file extension
+      final extension = file.extension?.toLowerCase();
+      if (extension != 'pdf') {
+        _showFintechToast(
+          context: context,
+          message: "Invalid file type: Only PDF loan agreements are supported.",
+          isError: true,
+        );
+        return;
+      }
+
+      // 4. Validate file size (limit to 15 MB for realism)
+      final double sizeMb = file.size / (1024 * 1024);
+      if (sizeMb > 15.0) {
+        _showFintechToast(
+          context: context,
+          message: "File too large: Maximum supported size is 15 MB.",
+          isError: true,
+        );
+        return;
+      }
+
+      // 5. Success - Show dynamic feedback
+      _showFintechToast(
+        context: context,
+        message: "Secured PDF verified. Initializing AI Engine...",
+        isError: false,
+      );
+
+      // 6. Navigate to UploadAiScanScreen with selected file info
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UploadAiScanScreen(
+              fileName: file.name,
+              fileSizeMb: sizeMb,
+              filePath: file.path,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      _showFintechToast(
+        context: context,
+        message: "Secure upload error: ${e.toString()}",
+        isError: true,
+      );
+    }
+  }
+
+  void _showFintechToast({
+    required BuildContext context,
+    required String message,
+    required bool isError,
+  }) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        content: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF201F20).withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isError
+                      ? const Color(0xFFFFB4AB).withValues(alpha: 0.3)
+                      : const Color(0xFFC3C6D7).withValues(alpha: 0.3),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isError
+                        ? const Color(0xFFFFB4AB).withValues(alpha: 0.1)
+                        : const Color(0xFFC3C6D7).withValues(alpha: 0.1),
+                    blurRadius: 15,
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isError
+                        ? Icons.error_outline_rounded
+                        : Icons.verified_user_outlined,
+                    color: isError ? const Color(0xFFFFB4AB) : const Color(0xFFC3C6D7),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFFE5E2E3),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -79,7 +221,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
           ),
 
           // Fixed Top App Bar
-          Positioned(
+          const Positioned(
             top: 0,
             left: 0,
             right: 0,
@@ -87,11 +229,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
           ),
 
           // Fixed Bottom Nav Bar
-          const Positioned(
+          Positioned(
             bottom: 32,
             left: 0,
             right: 0,
-            child: _BottomNavBar(),
+            child: _BottomNavBar(
+              onAnalyseTap: _pickAndUploadPDF,
+            ),
           ),
         ],
       ),
@@ -185,27 +329,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                                   _PrimaryButton(
                                     icon: Icons.upload_file_outlined,
                                     label: 'Upload PDF',
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const UploadAiScanScreen(),
-                                        ),
-                                      );
-                                    },
+                                    onPressed: _pickAndUploadPDF,
                                   ),
                                   _SecondaryButton(
                                     label: 'Scan Document',
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const UploadAiScanScreen(),
-                                        ),
-                                      );
-                                    },
+                                    onPressed: _pickAndUploadPDF,
                                   ),
                                 ],
                               ),
@@ -311,12 +439,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
             crossAxisSpacing: 16,
             childAspectRatio: 1.5,
             children: [
-              _ActionCard(
+              const _ActionCard(
                 icon: Icons.compare_arrows,
                 title: 'Compare Loans',
                 subtitle: 'Side-by-side technical audit.',
               ),
-              _ActionCard(
+              const _ActionCard(
                 icon: Icons.calculate_outlined,
                 title: 'EMI Calculator',
                 subtitle: 'Amortization & volatility test.',
@@ -326,6 +454,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                 title: 'Ask AI',
                 subtitle: 'Direct query on loan terms.',
                 isActive: true,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ClauseIntelligenceScreen(
+                        report: LoanAnalysisReport.mock(
+                          loanId: 'lns-demo-042',
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
               _ActionCard(
                 icon: Icons.security_outlined,
@@ -518,15 +658,15 @@ class _TopAppBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Icon(
+              const Icon(
                 Icons.sensors,
-                color: const Color(0xFFC3C6D7),
+                color: Color(0xFFC3C6D7),
                 size: 22,
               ),
               const SizedBox(width: 16),
-              Icon(
+              const Icon(
                 Icons.notifications_none,
-                color: const Color(0xFFC7C6CC),
+                color: Color(0xFFC7C6CC),
                 size: 22,
               ),
             ],
@@ -538,7 +678,8 @@ class _TopAppBar extends StatelessWidget {
 }
 
 class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar();
+  final VoidCallback? onAnalyseTap;
+  const _BottomNavBar({this.onAnalyseTap});
 
   @override
   Widget build(BuildContext context) {
@@ -578,19 +719,26 @@ class _BottomNavBar extends StatelessWidget {
                 const _NavBarItem(
                     icon: Icons.home_filled, label: 'Home', isSelected: true),
                 GestureDetector(
+                  onTap: onAnalyseTap,
+                  child: const _NavBarItem(
+                      icon: Icons.analytics_outlined, label: 'Analyse'),
+                ),
+                GestureDetector(
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const UploadAiScanScreen(),
+                        builder: (_) => ClauseIntelligenceScreen(
+                          report: LoanAnalysisReport.mock(
+                            loanId: 'lns-demo-042',
+                          ),
+                        ),
                       ),
                     );
                   },
                   child: const _NavBarItem(
-                      icon: Icons.analytics_outlined, label: 'Analyse'),
+                      icon: Icons.smart_toy_outlined, label: 'AI Assistant'),
                 ),
-                const _NavBarItem(
-                    icon: Icons.smart_toy_outlined, label: 'AI Assistant'),
                 const _NavBarItem(icon: Icons.compare_arrows, label: 'Compare'),
                 const _NavBarItem(icon: Icons.person_outline, label: 'Profile'),
               ],
