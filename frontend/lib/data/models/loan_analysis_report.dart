@@ -196,7 +196,7 @@ class LoanAnalysisReport {
           title: "Pre-payment Waiver Active",
           body: "Pre-payment penalties are completely waived after month 12. You have freedom to refinance early.",
           severity: "Verified",
-          accent: const Color(0xFFC3C6D7), // Primary / verified color
+          accent: Color(0xFFC3C6D7), // Primary / verified color
           page: "Page 4",
           clause: "Clause 6.2",
           explanation: "Allows risk-free refinancing if market rates drop, saving exit penalty charges.",
@@ -206,7 +206,7 @@ class LoanAnalysisReport {
           title: "Fixed Interest Protection",
           body: "Interest cap protection limits variable hikes to a maximum 1.5% above base index.",
           severity: "Verified",
-          accent: const Color(0xFFC3C6D7),
+          accent: Color(0xFFC3C6D7),
           page: "Page 8",
           clause: "Clause 9.1",
           explanation: "Protects monthly installments from high volatility during inflationary cycles.",
@@ -227,7 +227,7 @@ class LoanAnalysisReport {
           title: "Standard Exit Penalty",
           body: "A 2.0% pre-payment penalty applies if closed before month 24. Standard but restrictive.",
           severity: "Medium",
-          accent: const Color(0xFFDBC3A8), // Tertiary / yellow accent
+          accent: Color(0xFFDBC3A8), // Tertiary / yellow accent
           page: "Page 11",
           clause: "Clause 8.4",
           explanation: "This clause creates exit costs if you choose to refinance or pre-pay the loan early.",
@@ -237,7 +237,7 @@ class LoanAnalysisReport {
           title: "Variable Rate Reset Clause",
           body: "Year 5 interest rate resets to the bench index with a standard 180 bps margin.",
           severity: "Medium",
-          accent: const Color(0xFFDBC3A8),
+          accent: Color(0xFFDBC3A8),
           page: "Page 15",
           clause: "Clause 14.1",
           explanation: "Allows the bank to adjust rates after year 5, which could raise monthly payouts if interest rates are high.",
@@ -247,7 +247,7 @@ class LoanAnalysisReport {
           title: "Waived Processing Charges",
           body: "Processing charges are fully waived under tier 1 credit benefits. Savings: ₹6,500.",
           severity: "Verified",
-          accent: const Color(0xFFC3C6D7),
+          accent: Color(0xFFC3C6D7),
           page: "Page 2",
           clause: "Schedule A",
           explanation: "A positive term saving you immediate cash on loan initialization.",
@@ -268,7 +268,7 @@ class LoanAnalysisReport {
           title: "Predatory Pre-payment Clause",
           body: "A heavy 4.0% penalty applies if closed before month 36. This is double the current market benchmark.",
           severity: "High",
-          accent: const Color(0xFFFFB4AB), // Error / red accent
+          accent: Color(0xFFFFB4AB), // Error / red accent
           page: "Page 14",
           clause: "Clause 7.2",
           explanation: "Effectively traps you in this high interest rate loan and prevents cheaper refinancing options.",
@@ -278,7 +278,7 @@ class LoanAnalysisReport {
           title: "Aggressive Variable Rate Reset",
           body: "Year 3 variable interest reset permits rate escalation with an elevated 320 bps margin.",
           severity: "High",
-          accent: const Color(0xFFFFB4AB),
+          accent: Color(0xFFFFB4AB),
           page: "Page 19",
           clause: "Clause 11.2",
           explanation: "Exposes the borrower to large installment hikes without proper shielding caps.",
@@ -288,7 +288,7 @@ class LoanAnalysisReport {
           title: "Hidden Administration Fees",
           body: "Compounded quarterly service charges of 0.5% are quietly slipped into the premium schedule.",
           severity: "High",
-          accent: const Color(0xFFFFB4AB),
+          accent: Color(0xFFFFB4AB),
           page: "Page 7",
           clause: "Clause 3.8",
           explanation: "Raises the effective interest rate (APR) quietly behind the scenes.",

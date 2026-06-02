@@ -20,11 +20,14 @@ class Settings(BaseSettings):
     
     # NVIDIA NIM
     NVIDIA_API_KEY: str = ""
-    NVIDIA_LLM_MODEL: str = "meta/llama-3.1-70b-instruct"
+    NVIDIA_LLM_MODEL: str = "meta/llama-3.1-8b-instruct"
     NVIDIA_EMBED_MODEL: str = "nvidia/nv-embedqa-e5-v5"
     
     # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost/loansense"
+    DATABASE_URL: str = "sqlite:///./loansense.db"
+    
+    # Redis & Celery
+    REDIS_URL: str = "redis://localhost:6379/0"
     
     # ChromaDB
     CHROMA_DB_DIR: str = "./chroma_db"

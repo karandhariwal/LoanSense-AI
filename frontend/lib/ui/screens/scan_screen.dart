@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:glassmorphism/glassmorphism.dart';
 import 'package:loansense_ai/core/theme.dart';
-import 'package:loansense_ai/data/repositories/loan_repository.dart';
-import 'package:loansense_ai/ui/screens/chat_screen.dart';
+import 'package:loansense_ai/ui/screens/upload_ai_scan_screen.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -19,7 +18,6 @@ class _ScanScreenState extends State<ScanScreen>
   File? _selectedFile;
   bool _isUploading = false;
   String _status = "Select your loan document";
-  final LoanRepository _repository = LoanRepository();
 
   @override
   void initState() {
@@ -55,32 +53,29 @@ class _ScanScreenState extends State<ScanScreen>
 
     setState(() {
       _isUploading = true;
-      _status = "AI Intelligence Scanning...";
+      _status = "Generating PDF/Image from document...";
     });
     _scanController.repeat();
 
-    try {
-      final result = await _repository.uploadLoan(_selectedFile!);
-      _scanController.stop();
-      setState(() {
-        _isUploading = false;
-        _status = "Scan Complete! Loan ID: ${result['loan_id']}";
-      });
+    // Simulate local page scanner processing
+    await Future.delayed(const Duration(milliseconds: 1500));
+    _scanController.stop();
 
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatScreen(loanId: result['loan_id']),
+    if (mounted) {
+      final sizeBytes = await _selectedFile!.length();
+      final sizeMb = sizeBytes / (1024 * 1024);
+      
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => UploadAiScanScreen(
+            fileName: _selectedFile!.path.split('/').last,
+            fileSizeMb: sizeMb,
+            filePath: _selectedFile!.path,
           ),
-        );
-      }
-    } catch (e) {
-      _scanController.stop();
-      setState(() {
-        _isUploading = false;
-        _status = "Error: ${e.toString()}";
-      });
+        ),
+      );
     }
   }
 

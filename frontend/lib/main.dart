@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:loansense_ai/core/theme.dart';
 import 'package:loansense_ai/ui/screens/auth_screen.dart';
 import 'package:loansense_ai/ui/screens/onboarding_screen.dart';
@@ -9,7 +10,11 @@ import 'package:loansense_ai/ui/screens/upload_ai_scan_screen.dart';
 import 'package:loansense_ai/ui/screens/splash_screen.dart';
 
 void main() {
-  runApp(const LoanSenseApp());
+  runApp(
+    const ProviderScope(
+      child: LoanSenseApp(),
+    ),
+  );
 }
 
 class LoanSenseApp extends StatefulWidget {

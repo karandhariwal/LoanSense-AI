@@ -8,7 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 import 'package:loansense_ai/ui/screens/chat_screen.dart';
 import 'package:loansense_ai/ui/screens/home_dashboard_screen.dart';
-import 'package:loansense_ai/ui/screens/clause_intelligence_screen.dart';
+import 'package:loansense_ai/ui/screens/loan_assistant_screen.dart';
+import 'package:loansense_ai/ui/screens/loan_comparison_screen.dart';
 
 class LoanAnalysisReportScreen extends StatefulWidget {
   final LoanAnalysisReport? report;
@@ -163,7 +164,7 @@ class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ClauseIntelligenceScreen(
+                        builder: (_) => LoanAssistantScreen(
                           report: _controller.report,
                         ),
                       ),
@@ -171,7 +172,15 @@ class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
                   },
                   child: const _NavBarItem(icon: Icons.smart_toy_outlined, label: 'AI Assistant'),
                 ),
-                const _NavBarItem(icon: Icons.compare_arrows_outlined, label: 'Compare'),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoanComparisonScreen()),
+                    );
+                  },
+                  child: const _NavBarItem(icon: Icons.compare_arrows_outlined, label: 'Compare'),
+                ),
                 const _NavBarItem(icon: Icons.person_outline, label: 'Profile'),
               ],
             ),
@@ -2473,9 +2482,7 @@ class _BottomSheetFrame extends StatelessWidget {
         decoration: BoxDecoration(
           color: _LensColors.surfaceContainer,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(
-            top: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -2706,7 +2713,7 @@ Future<void> _openAlertSheet(
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ClauseIntelligenceScreen(
+                    builder: (context) => LoanAssistantScreen(
                       report: report,
                       targetClauseId: alert.id,
                     ),

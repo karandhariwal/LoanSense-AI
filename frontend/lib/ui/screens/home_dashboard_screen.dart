@@ -5,6 +5,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:loansense_ai/ui/screens/analysis_report_screen.dart';
 import 'package:loansense_ai/ui/screens/upload_ai_scan_screen.dart';
 import 'package:loansense_ai/ui/screens/clause_intelligence_screen.dart';
+import 'package:loansense_ai/ui/screens/loan_comparison_screen.dart';
+import 'package:loansense_ai/ui/screens/profile_settings_screen.dart';
+import 'package:loansense_ai/ui/screens/scan_screen.dart';
 import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
@@ -333,7 +336,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                                   ),
                                   _SecondaryButton(
                                     label: 'Scan Document',
-                                    onPressed: _pickAndUploadPDF,
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const ScanScreen(),
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ],
                               ),
@@ -522,7 +532,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
         ),
         const SizedBox(height: 24),
         SizedBox(
-          height: 120, // Adjust based on content
+          height: 135, // Adjust based on content
           child: ListView(
             scrollDirection: Axis.horizontal,
             clipBehavior: Clip.none,
@@ -739,8 +749,30 @@ class _BottomNavBar extends StatelessWidget {
                   child: const _NavBarItem(
                       icon: Icons.smart_toy_outlined, label: 'AI Assistant'),
                 ),
-                const _NavBarItem(icon: Icons.compare_arrows, label: 'Compare'),
-                const _NavBarItem(icon: Icons.person_outline, label: 'Profile'),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const LoanComparisonScreen(),
+                      ),
+                    );
+                  },
+                  child: const _NavBarItem(
+                      icon: Icons.compare_arrows, label: 'Compare'),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ProfileSettingsScreen(),
+                      ),
+                    );
+                  },
+                  child: const _NavBarItem(
+                      icon: Icons.person_outline, label: 'Profile'),
+                ),
               ],
             ),
           ),
@@ -1009,97 +1041,117 @@ class _HistoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 320,
-      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(12),
-        border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-          right: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-          left: BorderSide(color: color, width: 4),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            // Left indicator strip
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 4,
+              child: Container(color: color),
+            ),
+            // Card contents
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.spaceGrotesk(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFFE5E2E3),
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFFE5E2E3),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              subtitle,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFFC7C6CC),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'RISK: $riskScore',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: color,
+                            letterSpacing: 0.7, // 0.05em
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFC7C6CC),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        date,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFC7C6CC),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Icon(
+                            statusIcon,
+                            size: 16,
+                            color: const Color(0xFFC7C6CC),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            status,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFC7C6CC),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'RISK: $riskScore',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: color,
-                    letterSpacing: 0.7, // 0.05em
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                date,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFC7C6CC),
-                ),
-              ),
-              Row(
-                children: [
-                  Icon(
-                    statusIcon,
-                    size: 16,
-                    color: const Color(0xFFC7C6CC),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    status,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFC7C6CC),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

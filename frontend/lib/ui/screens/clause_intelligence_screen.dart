@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 import 'package:loansense_ai/ui/screens/home_dashboard_screen.dart';
 import 'package:loansense_ai/ui/screens/chat_screen.dart';
+import 'package:loansense_ai/ui/screens/loan_comparison_screen.dart';
 
 // ─── Design Tokens & Color Palettes (Aligned with code.html & analysis_report_screen.dart) ───
 class _ConsoleColors {
@@ -1870,8 +1871,16 @@ class _ClauseIntelligenceScreenState extends State<ClauseIntelligenceScreen>
                   child: const _NavBarItem(
                       icon: Icons.smart_toy_outlined, label: 'AI Assistant'),
                 ),
-                const _NavBarItem(
-                    icon: Icons.compare_arrows_outlined, label: 'Compare'),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoanComparisonScreen()),
+                    );
+                  },
+                  child: const _NavBarItem(
+                      icon: Icons.compare_arrows_outlined, label: 'Compare'),
+                ),
                 const _NavBarItem(icon: Icons.person_outline, label: 'Profile'),
               ],
             ),

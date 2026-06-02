@@ -1,9 +1,12 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'dart:math';
 import 'dart:ui';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 import 'package:loansense_ai/ui/screens/analysis_report_screen.dart';
+import 'package:loansense_ai/presentation/providers/loan_providers.dart';
+import 'package:loansense_ai/core/error/exceptions.dart';
 
 // ─── Color Palette (from reference design tokens) ───
 class _ScanColors {
@@ -29,7 +32,7 @@ class _AnalysisStep {
 }
 
 // ─── Main Screen ───
-class UploadAiScanScreen extends StatefulWidget {
+class UploadAiScanScreen extends ConsumerStatefulWidget {
   final String fileName;
   final double fileSizeMb;
   final String? filePath;
@@ -42,10 +45,10 @@ class UploadAiScanScreen extends StatefulWidget {
   });
 
   @override
-  State<UploadAiScanScreen> createState() => _UploadAiScanScreenState();
+  ConsumerState<UploadAiScanScreen> createState() => _UploadAiScanScreenState();
 }
 
-class _UploadAiScanScreenState extends State<UploadAiScanScreen>
+class _UploadAiScanScreenState extends ConsumerState<UploadAiScanScreen>
     with TickerProviderStateMixin {
   late final AnimationController _scanlineController;
   late final AnimationController _pulseController;
@@ -54,16 +57,23 @@ class _UploadAiScanScreenState extends State<UploadAiScanScreen>
   late final AnimationController _glowController;
 
   late List<_AnalysisStep> _steps;
+  String? _errorMessage;
+  bool _isNavigating = false;
+  String _pollingMessage = 'AI is identifying 14 critical nodes in your loan agreement.';
 
   @override
   void initState() {
     super.initState();
-    
+
     _steps = [
-      const _AnalysisStep(label: 'Extracting loan terms...', status: StepStatus.pending),
-      const _AnalysisStep(label: 'Analysing hidden clauses...', status: StepStatus.pending),
-      const _AnalysisStep(label: 'Calculating real loan cost...', status: StepStatus.pending),
-      const _AnalysisStep(label: 'Generating AI insights...', status: StepStatus.pending),
+      const _AnalysisStep(
+          label: 'Uploading document...', status: StepStatus.pending),
+      const _AnalysisStep(
+          label: 'Extracting loan terms...', status: StepStatus.pending),
+      const _AnalysisStep(
+          label: 'Analysing hidden clauses...', status: StepStatus.pending),
+      const _AnalysisStep(
+          label: 'Generating AI insights...', status: StepStatus.pending),
     ];
 
     _scanlineController = AnimationController(
@@ -78,71 +88,8 @@ class _UploadAiScanScreenState extends State<UploadAiScanScreen>
 
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 5), // Premium 5-second scanner simulation
+      duration: const Duration(seconds: 2),
     );
-
-    _progressController.addListener(() {
-      final val = _progressController.value;
-      setState(() {
-        if (val < 0.25) {
-          _steps[0] = const _AnalysisStep(label: 'Extracting loan terms...', status: StepStatus.processing);
-          _steps[1] = const _AnalysisStep(label: 'Analysing hidden clauses...', status: StepStatus.pending);
-          _steps[2] = const _AnalysisStep(label: 'Calculating real loan cost...', status: StepStatus.pending);
-          _steps[3] = const _AnalysisStep(label: 'Generating AI insights...', status: StepStatus.pending);
-        } else if (val < 0.50) {
-          _steps[0] = const _AnalysisStep(label: 'Extracting loan terms...', status: StepStatus.complete);
-          _steps[1] = const _AnalysisStep(label: 'Analysing hidden clauses...', status: StepStatus.processing);
-          _steps[2] = const _AnalysisStep(label: 'Calculating real loan cost...', status: StepStatus.pending);
-          _steps[3] = const _AnalysisStep(label: 'Generating AI insights...', status: StepStatus.pending);
-        } else if (val < 0.75) {
-          _steps[0] = const _AnalysisStep(label: 'Extracting loan terms...', status: StepStatus.complete);
-          _steps[1] = const _AnalysisStep(label: 'Analysing hidden clauses...', status: StepStatus.complete);
-          _steps[2] = const _AnalysisStep(label: 'Calculating real loan cost...', status: StepStatus.processing);
-          _steps[3] = const _AnalysisStep(label: 'Generating AI insights...', status: StepStatus.pending);
-        } else if (val < 1.0) {
-          _steps[0] = const _AnalysisStep(label: 'Extracting loan terms...', status: StepStatus.complete);
-          _steps[1] = const _AnalysisStep(label: 'Analysing hidden clauses...', status: StepStatus.complete);
-          _steps[2] = const _AnalysisStep(label: 'Calculating real loan cost...', status: StepStatus.complete);
-          _steps[3] = const _AnalysisStep(label: 'Generating AI insights...', status: StepStatus.processing);
-        } else {
-          _steps[0] = const _AnalysisStep(label: 'Extracting loan terms...', status: StepStatus.complete);
-          _steps[1] = const _AnalysisStep(label: 'Analysing hidden clauses...', status: StepStatus.complete);
-          _steps[2] = const _AnalysisStep(label: 'Calculating real loan cost...', status: StepStatus.complete);
-          _steps[3] = const _AnalysisStep(label: 'Generating AI insights...', status: StepStatus.complete);
-        }
-      });
-    });
-
-    _progressController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        Future.delayed(const Duration(milliseconds: 850), () {
-          if (mounted) {
-            // Generate deterministic mock report based on file metadata!
-            final report = LoanAnalysisReport.generateMockReport(
-              fileName: widget.fileName,
-              fileSizeMb: widget.fileSizeMb,
-            );
-
-            Navigator.pushReplacement(
-              context,
-              PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    LoanAnalysisReportScreen(report: report),
-                transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: child,
-                  );
-                },
-                transitionDuration: const Duration(milliseconds: 650),
-              ),
-            );
-          }
-        });
-      }
-    });
-
-    _progressController.forward();
 
     _floatController = AnimationController(
       vsync: this,
@@ -153,7 +100,129 @@ class _UploadAiScanScreenState extends State<UploadAiScanScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startBackendProcessing();
+    });
   }
+
+  Future<void> _startBackendProcessing() async {
+    setState(() {
+      _errorMessage = null;
+      _steps = [
+        const _AnalysisStep(
+            label: 'Uploading document...', status: StepStatus.processing),
+        const _AnalysisStep(
+            label: 'Extracting loan terms...', status: StepStatus.pending),
+        const _AnalysisStep(
+            label: 'Analysing hidden clauses...', status: StepStatus.pending),
+        const _AnalysisStep(
+            label: 'Generating AI insights...', status: StepStatus.pending),
+      ];
+    });
+
+    _progressController.value = 0.0;
+    _progressController.animateTo(0.20,
+        duration: const Duration(milliseconds: 800));
+
+    try {
+      if (widget.filePath == null) {
+        throw Exception(
+            "Local file path is missing. Please select a valid PDF agreement.");
+      }
+
+      final file = File(widget.filePath!);
+      if (!await file.exists()) {
+        throw Exception("Selected file was not found on device.");
+      }
+
+      // Step 1: Upload
+      final loanRepo = ref.read(loanRepositoryProvider);
+      final uploadRes = await loanRepo.uploadLoan(file);
+      final loanId = uploadRes['loan_id']?.toString();
+
+      if (loanId == null || loanId.isEmpty) {
+        throw Exception("Server did not return a valid loan_id.");
+      }
+
+      setState(() {
+        _steps[0] = const _AnalysisStep(
+            label: 'Uploading document...', status: StepStatus.complete);
+        _steps[1] = const _AnalysisStep(
+            label: 'Extracting loan terms...', status: StepStatus.processing);
+        _pollingMessage = 'AI engine is warming up — this takes 1–3 minutes...';
+      });
+      await _progressController.animateTo(0.35,
+          duration: const Duration(milliseconds: 800));
+
+      // Step 2: Poll until backend COMPLETED or FAILED
+      // fetchAnalysis() already handles polling internally (every 5s, max 6 min)
+      final report = await loanRepo.fetchAnalysis(loanId);
+
+      setState(() {
+        _steps[1] = const _AnalysisStep(
+            label: 'Extracting loan terms...', status: StepStatus.complete);
+        _steps[2] = const _AnalysisStep(
+            label: 'Analysing hidden clauses...',
+            status: StepStatus.processing);
+        _pollingMessage = 'Risk clauses identified. Finalizing report...';
+      });
+      await _progressController.animateTo(0.75,
+          duration: const Duration(milliseconds: 600));
+
+      setState(() {
+        _steps[2] = const _AnalysisStep(
+            label: 'Analysing hidden clauses...', status: StepStatus.complete);
+        _steps[3] = const _AnalysisStep(
+            label: 'Generating AI insights...', status: StepStatus.processing);
+        _pollingMessage = 'Building your personalized loan report...';
+      });
+      await _progressController.animateTo(0.95,
+          duration: const Duration(milliseconds: 600));
+
+      setState(() {
+        _steps[3] = const _AnalysisStep(
+            label: 'Generating AI insights...', status: StepStatus.complete);
+        _pollingMessage = 'Complete!';
+      });
+      await _progressController.animateTo(1.0,
+          duration: const Duration(milliseconds: 400));
+
+      if (mounted && !_isNavigating) {
+        _isNavigating = true;
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  LoanAnalysisReportScreen(report: report),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: child,
+                );
+              },
+              transitionDuration: const Duration(milliseconds: 650),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e is ApiException
+              ? e.message
+              : e is NetworkException
+                  ? e.message
+                  : e.toString();
+          _pollingMessage = 'AI is identifying 14 critical nodes in your loan agreement.';
+        });
+      }
+    }
+  }
+
 
   @override
   void dispose() {
@@ -184,11 +253,15 @@ class _UploadAiScanScreenState extends State<UploadAiScanScreen>
                   const SizedBox(height: 24),
                   _buildDocumentPreviewSection(),
                   const SizedBox(height: 32),
-                  _buildProcessSteps(),
-                  const SizedBox(height: 24),
-                  _buildProgressSection(),
-                  const SizedBox(height: 16),
-                  _buildContextBar(),
+                  if (_errorMessage != null)
+                    _buildErrorSection()
+                  else ...[
+                    _buildProcessSteps(),
+                    const SizedBox(height: 24),
+                    _buildProgressSection(),
+                    const SizedBox(height: 16),
+                    _buildContextBar(),
+                  ],
                   const SizedBox(height: 40),
                 ],
               ),
@@ -202,6 +275,67 @@ class _UploadAiScanScreenState extends State<UploadAiScanScreen>
                 child: CustomPaint(
                   painter: _NoisePainter(),
                 ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorSection() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFB4AB).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border:
+            Border.all(color: const Color(0xFFFFB4AB).withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  color: Color(0xFFFFB4AB), size: 28),
+              const SizedBox(width: 12),
+              Text(
+                'Analysis Failed',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFFFB4AB),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _errorMessage ?? 'An error occurred during scanning.',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: _ScanColors.onSurface,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _startBackendProcessing,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFB4AB),
+                foregroundColor: const Color(0xFF131314),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text(
+                'Retry Scan',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -556,7 +690,7 @@ class _UploadAiScanScreenState extends State<UploadAiScanScreen>
             const SizedBox(width: 12),
             Flexible(
               child: Text(
-                'AI is identifying 14 critical nodes in your loan agreement.',
+                _pollingMessage,
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
