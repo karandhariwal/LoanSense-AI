@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from langchain_core.language_models import BaseChatModel
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from app.core.config import settings
+from app.services.configuration_service import config_service
 from app.models.loan_score import LoanSafetyScore, SafetyRating
 from app.services.ai.prompt_templates import LOAN_SAFETY_SCORE_PROMPT
 from app.services.calculations import LoanCalculator
@@ -29,14 +30,17 @@ class SafetyScorer:
         self.chain = LOAN_SAFETY_SCORE_PROMPT | self.structured_llm
 
     def _determine_correct_rating(self, score: float) -> SafetyRating:
-        """Helper to get correct rating based on score range."""
-        if 8.5 <= score <= 10.0:
+        """Helper to get correct rating based on configurable score ranges."""
+        thresholds = config_service.safety_thresholds
+        
+        # Use configuration-driven thresholds instead of hardcoded values
+        if thresholds.excellent_min <= score <= thresholds.excellent_max:
             return SafetyRating.EXCELLENT
-        elif 7.0 <= score < 8.5:
+        elif thresholds.good_min <= score < thresholds.good_max:
             return SafetyRating.GOOD
-        elif 5.0 <= score < 7.0:
+        elif thresholds.moderate_min <= score < thresholds.moderate_max:
             return SafetyRating.MODERATE
-        elif 3.0 <= score < 5.0:
+        elif thresholds.risky_min <= score < thresholds.risky_max:
             return SafetyRating.RISKY
         else:
             return SafetyRating.HIGH_RISK

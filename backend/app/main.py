@@ -10,14 +10,18 @@ from app.core.config import settings
 from app.database.session import engine, get_db
 from app.database.base import Base
 from app.database.models import LoanReport  # noqa: F401 - registers model with Base
+from app.database.user_models import UserProfile, UserSettings  # noqa: F401 - registers models with Base
 from app.database.enums import ProcessingStatus
 from app.tasks import process_loan_document_task
 
 # Import API Routers
 from app.api.analysis import router as analysis_router
+from app.api.loans import router as loans_router
 from app.api.risks import router as risks_router
 from app.api.compare import router as compare_router
 from app.api.chat import router as chat_router
+from app.api.user import router as user_router
+from app.api.auth import router as auth_router
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -45,9 +49,12 @@ app.add_middleware(
 
 # Include API Routers
 app.include_router(analysis_router, prefix="/analysis", tags=["analysis"])
+app.include_router(loans_router, tags=["loans"])
 app.include_router(risks_router, prefix="/risks", tags=["risks"])
 app.include_router(compare_router, prefix="/compare", tags=["compare"])
 app.include_router(chat_router, prefix="/chat", tags=["chat"])
+app.include_router(user_router, prefix="/user", tags=["user"])
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
 
 @app.get("/")
 def read_root():

@@ -1,23 +1,27 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
+import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 import 'package:loansense_ai/data/models/loan_assistant_models.dart';
+import 'package:loansense_ai/data/repositories/loan_repository.dart';
 import 'package:loansense_ai/data/repositories/loan_assistant_repository.dart';
 import 'package:loansense_ai/data/repositories/http_loan_assistant_repository.dart';
 import 'package:loansense_ai/ui/screens/home_dashboard_screen.dart';
 
 class LoanAssistantScreen extends StatefulWidget {
-  final LoanAnalysisReport report;
+  final LoanAnalysisReport? report;
+  final String? loanId;
   final String? targetClauseId;
 
   const LoanAssistantScreen({
     super.key,
-    required this.report,
+    this.report,
+    this.loanId,
     this.targetClauseId,
   });
 
@@ -41,8 +45,14 @@ class _LoanAssistantScreenState extends State<LoanAssistantScreen>
     super.initState();
     _controller = LoanAssistantConversationController(
       report: widget.report,
+      loanId: widget.loanId ?? widget.report?.loanId ?? '',
       targetClauseId: widget.targetClauseId,
-    )..bootstrap();
+    );
+    if (widget.report == null) {
+      _controller.load();
+    } else {
+      _controller.bootstrap();
+    }
     _controller.addListener(_queueScroll);
     _scrollController = ScrollController();
     _ambientController = AnimationController(
@@ -96,6 +106,7 @@ class _LoanAssistantScreenState extends State<LoanAssistantScreen>
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     const bottomGutter = 156.0;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: _AiPalette.background,
       body: FadeTransition(
         opacity: CurvedAnimation(parent: _enterController, curve: Curves.easeOut),
@@ -126,9 +137,11 @@ class _LoanAssistantScreenState extends State<LoanAssistantScreen>
                     AnimatedBuilder(
                       animation: Listenable.merge([_controller, _ambientController]),
                       builder: (_, __) {
-                        final docContext = _controller.documentLabel.trim().isEmpty
-                            ? _controller.contextLabel
-                            : '${_controller.documentLabel} • ${_controller.pageLabel}';
+                        final docContext = _controller.isLoading
+                            ? 'Connecting to Intelligence Core...'
+                            : (_controller.documentLabel.trim().isEmpty
+                                ? _controller.contextLabel
+                                : '${_controller.documentLabel} • ${_controller.pageLabel}');
                         return _TopBar(
                           glow: _ambientController.value,
                           contextLabel: docContext,
@@ -157,6 +170,13 @@ class _LoanAssistantScreenState extends State<LoanAssistantScreen>
                           _heroController,
                         ]),
                         builder: (_, __) {
+                          if (_controller.isLoading) {
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                color: Color(0xFFC3C6D7),
+                              ),
+                            );
+                          }
                           return ListView(
                             controller: _scrollController,
                             physics: const BouncingScrollPhysics(),
@@ -221,10 +241,10 @@ class _LoanAssistantScreenState extends State<LoanAssistantScreen>
                         _InputDock(
                           controller: _inputController,
                           focusNode: _inputFocus,
-                          onSend: _send,
+                          onSend: _controller.isLoading ? (_) {} : _send,
                           listening: _controller.isListening,
-                          onMicTap: _controller.toggleListening,
-                          onAttachTap: _controller.toggleAttachment,
+                          onMicTap: _controller.isLoading ? () {} : _controller.toggleListening,
+                          onAttachTap: _controller.isLoading ? () {} : _controller.toggleAttachment,
                         ),
                       ],
                     ),
@@ -315,7 +335,8 @@ class _LoanAssistantScreenState extends State<LoanAssistantScreen>
 }
 
 class LoanAssistantConversationController extends ChangeNotifier {
-  final LoanAnalysisReport report;
+  LoanAnalysisReport? _report;
+  final String loanId;
   final String? targetClauseId;
   final LoanAssistantRepository _repository;
   final List<LoanAssistantMessage> _messages = [];
@@ -323,20 +344,74 @@ class LoanAssistantConversationController extends ChangeNotifier {
   bool isSending = false;
   bool isListening = false;
   bool hasAttachment = true;
+  bool isLoading = true;
   String documentLabel = 'Agreement_V2.pdf';
   String pageLabel = 'Page 14';
   String contextLabel = 'Personalized Loan Analysis';
   List<LoanAssistantSuggestion> suggestions = const [];
 
   LoanAssistantConversationController({
-    required this.report,
+    LoanAnalysisReport? report,
+    required this.loanId,
     this.targetClauseId,
     LoanAssistantRepository? repository,
-  }) : _repository = repository ?? HttpLoanAssistantRepository();
+  }) : _report = report,
+       _repository = repository ?? HttpLoanAssistantRepository() {
+    if (_report != null) {
+      isLoading = false;
+    }
+  }
+
+  LoanAnalysisReport get report => _report!;
 
   List<LoanAssistantMessage> get messages => List.unmodifiable(_messages);
 
+  Future<void> load() async {
+    isLoading = true;
+    notifyListeners();
+
+    // Guard: never attempt a network call with an empty/invalid loan ID.
+    if (loanId.isEmpty) {
+      developer.log('LoanAssistantConversationController: no loanId provided, skipping fetch.');
+      _report = null;
+      isLoading = false;
+      notifyListeners();
+      return;
+    }
+
+    try {
+      _report = await LoanRepository().fetchAnalysis(loanId);
+    } catch (e) {
+      developer.log('Error fetching analysis in assistant: $e');
+      _report = _generateFallbackReport(loanId);
+    }
+    isLoading = false;
+    bootstrap();
+  }
+
+  static LoanAnalysisReport _generateFallbackReport(String loanId) {
+    return LoanAnalysisReport(
+      loanId: loanId,
+      lenderName: 'Apex Finance Corp',
+      productName: 'Secure Home Prime',
+      healthScore: 7.8,
+      healthSummary: 'Moderate health. Previewing local fallback report.',
+      detailedSummary: 'Detailed analysis is not available offline.',
+      simpleSummary: 'Offline mode: Previewing fallback template.',
+      recommendedAction: 'Verify connection',
+      contractClarity: '90% Transparent',
+      metrics: const [],
+      alerts: const [],
+      sources: const [],
+      costSlices: const [],
+      emiSeries: const [],
+      clauseChips: const [],
+      extractions: const [],
+    );
+  }
+
   void bootstrap() {
+    if (_report == null) return;
     final seed = _repository.bootstrap(report);
     _messages
       ..clear()
@@ -380,32 +455,61 @@ class LoanAssistantConversationController extends ChangeNotifier {
     isSending = true;
     notifyListeners();
 
-    final reply = await _repository.reply(
-      context: LoanAssistantConversationContext(
-        report: report,
-        targetClauseId: targetClauseId,
-        history: List.unmodifiable(
-          _messages.where((m) => m.state == LoanAssistantMessageState.complete),
+    try {
+      final reply = await _repository.reply(
+        context: LoanAssistantConversationContext(
+          report: report,
+          targetClauseId: targetClauseId,
+          history: List.unmodifiable(
+            _messages.where((m) => m.state == LoanAssistantMessageState.complete),
+          ),
         ),
-      ),
-      query: query,
-    );
-
-    final index = _messages.indexWhere((m) => m.id == typingMessage.id);
-    if (index != -1) {
-      _messages[index] = reply.assistantMessage.copyWith(
-        id: typingMessage.id,
-        timestamp: DateTime.now(),
-        isFresh: true,
+        query: query,
       );
-      suggestions = reply.suggestions;
-      contextLabel = reply.contextLabel;
-      _expanded[typingMessage.id] = true;
-      _settleFresh(typingMessage.id);
-    }
 
-    isSending = false;
-    notifyListeners();
+      final index = _messages.indexWhere((m) => m.id == typingMessage.id);
+      if (index != -1) {
+        _messages[index] = reply.assistantMessage.copyWith(
+          id: typingMessage.id,
+          timestamp: DateTime.now(),
+          isFresh: true,
+        );
+        suggestions = reply.suggestions;
+        contextLabel = reply.contextLabel;
+        _expanded[typingMessage.id] = true;
+        _settleFresh(typingMessage.id);
+      }
+    } catch (e, stackTrace) {
+      developer.log(
+        'Loan assistant reply failed: $e',
+        stackTrace: stackTrace,
+      );
+      final index = _messages.indexWhere((m) => m.id == typingMessage.id);
+      if (index != -1) {
+        _messages[index] = _buildFailureMessage(
+          id: typingMessage.id,
+          error: e,
+        );
+        _expanded[typingMessage.id] = true;
+        _settleFresh(typingMessage.id);
+      }
+      suggestions = const [
+        LoanAssistantSuggestion(
+          label: 'Retry question',
+          prompt: 'Please answer my last question again.',
+          accent: Color(0xFFC3C6D7),
+        ),
+        LoanAssistantSuggestion(
+          label: 'Check charges',
+          prompt: 'What charges and penalties apply in this loan?',
+          accent: Color(0xFFDBC3A8),
+        ),
+      ];
+      contextLabel = 'Assistant unavailable';
+    } finally {
+      isSending = false;
+      notifyListeners();
+    }
   }
 
   void toggleListening() {
@@ -433,6 +537,55 @@ class LoanAssistantConversationController extends ChangeNotifier {
   }
 
   bool isExpanded(String id) => _expanded[id] ?? true;
+
+  LoanAssistantMessage _buildFailureMessage({
+    required String id,
+    required Object error,
+  }) {
+    final details = error.toString();
+    final hint = details.contains('NVIDIA_API_KEY')
+        ? 'The backend AI key is missing or invalid.'
+        : details.contains('Connection timeout') ||
+                  details.contains('network failure')
+            ? 'The app could not reach the backend service.'
+            : 'The assistant could not produce a response.';
+    final answer =
+        'I could not get a model response just now. $hint Please try again.';
+
+    return LoanAssistantMessage(
+      id: id,
+      role: LoanAssistantRole.assistant,
+      content: answer,
+      timestamp: DateTime.now(),
+      state: LoanAssistantMessageState.complete,
+      isFresh: true,
+      card: LoanAssistantCardData(
+        engineLabel: 'LOANSENSE AI ENGINE 4.2',
+        answerLabel: 'Connection status',
+        answer: answer,
+        simplifiedAnswer: answer,
+        sourceClause: 'System status',
+        pageReference: 'Assistant connection',
+        riskContext: hint,
+        highlightTerms: const ['response', 'backend', 'assistant'],
+        insightChips: const [
+          LoanAssistantInsightChip(
+            label: 'Retry Required',
+            accent: Color(0xFFFFB4AB),
+            icon: Icons.refresh_rounded,
+          ),
+        ],
+        references: [
+          LoanAssistantReference(
+            label: 'Technical detail',
+            value: details,
+            accent: const Color(0xFFFFB4AB),
+            icon: Icons.error_outline_rounded,
+          ),
+        ],
+      ),
+    );
+  }
 
   void _settleFresh(String id) {
     Timer(const Duration(milliseconds: 20), () {

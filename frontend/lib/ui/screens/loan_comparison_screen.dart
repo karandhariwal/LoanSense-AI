@@ -8,10 +8,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:loansense_ai/data/models/loan_analysis_report.dart';
+import 'package:loansense_ai/core/navigation/app_routes.dart';
 import 'package:loansense_ai/data/models/loan_comparison_report.dart';
 import 'package:loansense_ai/data/repositories/loan_comparison_repository.dart';
-import 'package:loansense_ai/ui/screens/home_dashboard_screen.dart';
 import 'package:loansense_ai/ui/screens/loan_assistant_screen.dart';
 
 class LoanComparisonScreen extends StatefulWidget {
@@ -65,24 +64,23 @@ class _LoanComparisonScreenState extends State<LoanComparisonScreen>
                     children: [
                       _TopAppBar(
                         glow: _ambientController.value,
-                        onGoHome: () {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (_) => const HomeDashboardScreen()),
-                            (route) => false,
-                          );
-                        },
+                        onGoHome: () => AppNavigator.goHome(context),
+                        onOpenProfile: () => AppNavigator.goToProfile(context),
                       ),
                       const SizedBox(height: 28),
                       _UploadCards(
                         loanAFileName: _controller.loanA?.fileName,
                         loanBFileName: _controller.loanB?.fileName,
                         loadingSide: _controller.uploadingSide,
-                        onPickA: () => _controller.pickLoan(context, LoanSide.loanA),
-                        onPickB: () => _controller.pickLoan(context, LoanSide.loanB),
+                        onPickA: () =>
+                            _controller.pickLoan(context, LoanSide.loanA),
+                        onPickB: () =>
+                            _controller.pickLoan(context, LoanSide.loanB),
                       ),
                       const SizedBox(height: 28),
                       if (_controller.isComparing) const _CompareLoadingCard(),
-                      if (_controller.report != null && !_controller.isComparing) ...[
+                      if (_controller.report != null &&
+                          !_controller.isComparing) ...[
                         const SizedBox(height: 28),
                         _MatrixCard(report: _controller.report!),
                         const SizedBox(height: 28),
@@ -104,7 +102,8 @@ class _LoanComparisonScreenState extends State<LoanComparisonScreen>
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: _ComparePalette.primary,
                                   foregroundColor: const Color(0xFF2C303D),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 12),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -114,7 +113,8 @@ class _LoanComparisonScreenState extends State<LoanComparisonScreen>
                                   fit: BoxFit.scaleDown,
                                   child: Text(
                                     'Re-Run Comparison',
-                                    style: GoogleFonts.inter(fontWeight: FontWeight.w800),
+                                    style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w800),
                                   ),
                                 ),
                               ),
@@ -122,20 +122,25 @@ class _LoanComparisonScreenState extends State<LoanComparisonScreen>
                             const SizedBox(width: 14),
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => LoanAssistantScreen(
-                                        report: LoanAnalysisReport.mock(loanId: 'lns-compare-042'),
-                                      ),
-                                    ),
-                                  );
-                                },
+                                onPressed: _controller.loanA == null
+                                    ? null
+                                    : () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => LoanAssistantScreen(
+                                              loanId: _controller.loanA!.id,
+                                            ),
+                                          ),
+                                        );
+                                      },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: _ComparePalette.primary,
                                   foregroundColor: const Color(0xFF2C303D),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                  disabledBackgroundColor: _ComparePalette.primary.withValues(alpha: 0.3),
+                                  disabledForegroundColor: const Color(0xFF2C303D).withValues(alpha: 0.5),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 12),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -145,7 +150,8 @@ class _LoanComparisonScreenState extends State<LoanComparisonScreen>
                                   fit: BoxFit.scaleDown,
                                   child: Text(
                                     'Ask AI',
-                                    style: GoogleFonts.inter(fontWeight: FontWeight.w800),
+                                    style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w800),
                                   ),
                                 ),
                               ),
@@ -162,28 +168,21 @@ class _LoanComparisonScreenState extends State<LoanComparisonScreen>
                 left: 0,
                 right: 0,
                 child: _BottomDock(
-                  onHome: () {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const HomeDashboardScreen()),
-                      (route) => false,
-                    );
-                  },
-                  onAnalyse: () {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const HomeDashboardScreen()),
-                      (route) => false,
-                    );
-                  },
-                  onAssistant: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => LoanAssistantScreen(
-                          report: LoanAnalysisReport.mock(loanId: 'lns-demo-042'),
-                        ),
-                      ),
-                    );
-                  },
+                  onHome: () => AppNavigator.goHome(context),
+                  onAnalyse: () => AppNavigator.goToScan(context),
+                  onAssistant: _controller.loanA == null
+                      ? null
+                      : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => LoanAssistantScreen(
+                                loanId: _controller.loanA!.id,
+                              ),
+                            ),
+                          );
+                        },
+                  onProfile: () => AppNavigator.goToProfile(context),
                 ),
               ),
             ],
@@ -215,8 +214,11 @@ class LoanComparisonController extends ChangeNotifier {
   }
 
   Future<void> pickLoan(BuildContext context, LoanSide side) async {
-    final result = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: const ['pdf']);
-    if (result == null || result.files.isEmpty || result.files.first.path == null) {
+    final result = await FilePicker.pickFiles(
+        type: FileType.custom, allowedExtensions: const ['pdf']);
+    if (result == null ||
+        result.files.isEmpty ||
+        result.files.first.path == null) {
       return;
     }
     uploadingSide = side;
@@ -233,7 +235,9 @@ class LoanComparisonController extends ChangeNotifier {
       final lenderLabel = fileName.split('.').first;
       final summary = LoanDocumentSummary(
         id: loanId,
-        lenderLabel: lenderLabel.length > 15 ? lenderLabel.substring(0, 15) : lenderLabel,
+        lenderLabel: lenderLabel.length > 15
+            ? lenderLabel.substring(0, 15)
+            : lenderLabel,
         fileName: fileName,
       );
 
@@ -283,7 +287,9 @@ class LoanComparisonController extends ChangeNotifier {
     final data = report;
     if (data == null) return;
     await Clipboard.setData(
-      ClipboardData(text: 'Verdict: ${data.verdict.safetyIndex.toStringAsFixed(1)} • ${data.verdict.recommendedLabel}'),
+      ClipboardData(
+          text:
+              'Verdict: ${data.verdict.safetyIndex.toStringAsFixed(1)} • ${data.verdict.recommendedLabel}'),
     );
   }
 
@@ -358,7 +364,13 @@ class _AmbientBackdrop extends StatelessWidget {
 class _TopAppBar extends StatelessWidget {
   final double glow;
   final VoidCallback onGoHome;
-  const _TopAppBar({required this.glow, required this.onGoHome});
+  final VoidCallback onOpenProfile;
+
+  const _TopAppBar({
+    required this.glow,
+    required this.onGoHome,
+    required this.onOpenProfile,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -368,7 +380,9 @@ class _TopAppBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(0, 0, 0, 14),
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.12))),
+            border: Border(
+                bottom:
+                    BorderSide(color: Colors.white.withValues(alpha: 0.12))),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -380,12 +394,17 @@ class _TopAppBar extends StatelessWidget {
                 },
                 child: Text(
                   'LoanSense AI',
-                  style: GoogleFonts.spaceGrotesk(fontSize: 24, fontWeight: FontWeight.w600, color: _ComparePalette.primary),
+                  style: GoogleFonts.spaceGrotesk(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: _ComparePalette.primary),
                 ),
               ),
               Row(
                 children: [
-                  Icon(Icons.sensors, color: _ComparePalette.primary.withValues(alpha: 0.95), size: 20),
+                  Icon(Icons.sensors,
+                      color: _ComparePalette.primary.withValues(alpha: 0.95),
+                      size: 20),
                   const SizedBox(width: 16),
                   Container(
                     width: 40,
@@ -393,9 +412,21 @@ class _TopAppBar extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: _ComparePalette.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(9999),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12)),
                     ),
-                    child: const Icon(Icons.person, size: 18, color: _ComparePalette.primary),
+                    child: IconButton(
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        onOpenProfile();
+                      },
+                      icon: const Icon(
+                        Icons.person,
+                        size: 18,
+                        color: _ComparePalette.primary,
+                      ),
+                      splashRadius: 20,
+                    ),
                   ),
                 ],
               ),
@@ -583,7 +614,8 @@ class _DashedRRectPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-    final rrect = RRect.fromRectAndRadius(rect.deflate(strokeWidth / 2), Radius.circular(radius));
+    final rrect = RRect.fromRectAndRadius(
+        rect.deflate(strokeWidth / 2), Radius.circular(radius));
 
     final paint = Paint()
       ..style = PaintingStyle.stroke
@@ -637,22 +669,33 @@ class _CompareLoadingCard extends StatelessWidget {
                   color: _ComparePalette.primary.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.smart_toy, color: _ComparePalette.primary),
+                child:
+                    const Icon(Icons.smart_toy, color: _ComparePalette.primary),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Running AI comparison…', style: GoogleFonts.spaceGrotesk(fontSize: 18, fontWeight: FontWeight.w600, color: _ComparePalette.primary)),
+                    Text('Running AI comparison…',
+                        style: GoogleFonts.spaceGrotesk(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: _ComparePalette.primary)),
                     const SizedBox(height: 6),
-                    Text('Parsing clauses, fees, exit penalties and rate buffers.', style: GoogleFonts.inter(fontSize: 13, height: 1.5, color: _ComparePalette.onSurfaceVariant)),
+                    Text(
+                        'Parsing clauses, fees, exit penalties and rate buffers.',
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            height: 1.5,
+                            color: _ComparePalette.onSurfaceVariant)),
                     const SizedBox(height: 12),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(9999),
                       child: LinearProgressIndicator(
                         minHeight: 6,
-                        valueColor: const AlwaysStoppedAnimation<Color>(_ComparePalette.primary),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                            _ComparePalette.primary),
                         backgroundColor: Colors.white.withValues(alpha: 0.06),
                       ),
                     ),
@@ -700,9 +743,16 @@ class _MatrixCard extends StatelessWidget {
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.05),
-                  border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.12))),
+                  border: Border(
+                      bottom: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.12))),
                 ),
-                child: Text('Comparison Matrix', style: GoogleFonts.spaceGrotesk(fontSize: 32, height: 1.05, fontWeight: FontWeight.w600, color: _ComparePalette.primary)),
+                child: Text('Comparison Matrix',
+                    style: GoogleFonts.spaceGrotesk(
+                        fontSize: 32,
+                        height: 1.05,
+                        fontWeight: FontWeight.w600,
+                        color: _ComparePalette.primary)),
               ),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -715,7 +765,9 @@ class _MatrixCard extends StatelessWidget {
                     ),
                   ),
                   child: DataTable(
-                    headingRowColor: WidgetStatePropertyAll(_ComparePalette.surfaceContainerLow.withValues(alpha: 0.98)),
+                    headingRowColor: WidgetStatePropertyAll(_ComparePalette
+                        .surfaceContainerLow
+                        .withValues(alpha: 0.98)),
                     dataRowMinHeight: 52,
                     dataRowMaxHeight: 80,
                     headingRowHeight: 44,
@@ -762,30 +814,39 @@ class _MatrixCard extends StatelessWidget {
                             cells: [
                               DataCell(
                                 ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 120),
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 120),
                                   child: Text(
                                     m.label,
-                                    style: GoogleFonts.inter(fontSize: 13, color: _ComparePalette.onSurface),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        color: _ComparePalette.onSurface),
                                     softWrap: true,
                                   ),
                                 ),
                               ),
                               DataCell(
                                 ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 140),
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 140),
                                   child: Text(
                                     m.loanA.badge?.label ?? m.loanA.value,
-                                    style: GoogleFonts.spaceGrotesk(fontSize: 13, color: _signalColor(m.loanA)),
+                                    style: GoogleFonts.spaceGrotesk(
+                                        fontSize: 13,
+                                        color: _signalColor(m.loanA)),
                                     softWrap: true,
                                   ),
                                 ),
                               ),
                               DataCell(
                                 ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 140),
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 140),
                                   child: Text(
                                     m.loanB.badge?.label ?? m.loanB.value,
-                                    style: GoogleFonts.spaceGrotesk(fontSize: 13, color: _signalColor(m.loanB)),
+                                    style: GoogleFonts.spaceGrotesk(
+                                        fontSize: 13,
+                                        color: _signalColor(m.loanB)),
                                     softWrap: true,
                                   ),
                                 ),
@@ -861,10 +922,12 @@ class _RecommendationCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: _ComparePalette.primary.withValues(alpha: 0.10),
+                            color:
+                                _ComparePalette.primary.withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.smart_toy, color: _ComparePalette.primary, size: 26),
+                          child: const Icon(Icons.smart_toy,
+                              color: _ComparePalette.primary, size: 26),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -899,13 +962,15 @@ class _RecommendationCard extends StatelessWidget {
                           children: [
                             IconButton(
                               onPressed: onCopy,
-                              icon: const Icon(Icons.copy_all_outlined, color: _ComparePalette.primary, size: 20),
+                              icon: const Icon(Icons.copy_all_outlined,
+                                  color: _ComparePalette.primary, size: 20),
                               padding: const EdgeInsets.all(6),
                               constraints: const BoxConstraints(),
                             ),
                             IconButton(
                               onPressed: onShare,
-                              icon: const Icon(Icons.ios_share_outlined, color: _ComparePalette.primary, size: 20),
+                              icon: const Icon(Icons.ios_share_outlined,
+                                  color: _ComparePalette.primary, size: 20),
                               padding: const EdgeInsets.all(6),
                               constraints: const BoxConstraints(),
                             ),
@@ -920,8 +985,18 @@ class _RecommendationCard extends StatelessWidget {
                         child: RichText(
                           text: TextSpan(
                             children: [
-                              TextSpan(text: '${r.title}: ', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: _ComparePalette.primary)),
-                              TextSpan(text: r.body, style: GoogleFonts.inter(fontSize: 14, height: 1.55, color: _ComparePalette.onSurface)),
+                              TextSpan(
+                                  text: '${r.title}: ',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: _ComparePalette.primary)),
+                              TextSpan(
+                                  text: r.body,
+                                  style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      height: 1.55,
+                                      color: _ComparePalette.onSurface)),
                             ],
                           ),
                         ),
@@ -929,8 +1004,14 @@ class _RecommendationCard extends StatelessWidget {
                     ),
                     TextButton.icon(
                       onPressed: onToggleWhy,
-                      icon: Icon(whyExpanded ? Icons.expand_less : Icons.expand_more, color: _ComparePalette.primary),
-                      label: Text('Why this recommendation?', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: _ComparePalette.primary)),
+                      icon: Icon(
+                          whyExpanded ? Icons.expand_less : Icons.expand_more,
+                          color: _ComparePalette.primary),
+                      label: Text('Why this recommendation?',
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _ComparePalette.primary)),
                     ),
                     AnimatedSize(
                       duration: const Duration(milliseconds: 240),
@@ -938,7 +1019,11 @@ class _RecommendationCard extends StatelessWidget {
                       child: whyExpanded
                           ? Padding(
                               padding: const EdgeInsets.only(top: 8),
-                              child: Text(rec.why, style: GoogleFonts.inter(fontSize: 13, height: 1.6, color: _ComparePalette.onSurface)),
+                              child: Text(rec.why,
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      height: 1.6,
+                                      color: _ComparePalette.onSurface)),
                             )
                           : const SizedBox.shrink(),
                     ),
@@ -972,7 +1057,12 @@ class _VerdictCard extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Text('LoanSense AI Verdict', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 2.2, color: _ComparePalette.onSurfaceVariant)),
+              Text('LoanSense AI Verdict',
+                  style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2.2,
+                      color: _ComparePalette.onSurfaceVariant)),
               const SizedBox(height: 18),
               SizedBox(
                 width: 160,
@@ -991,9 +1081,18 @@ class _VerdictCard extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(verdict.safetyIndex.toStringAsFixed(1), style: GoogleFonts.spaceGrotesk(fontSize: 48, fontWeight: FontWeight.w700, color: _ComparePalette.primary, height: 1.0)),
+                          Text(verdict.safetyIndex.toStringAsFixed(1),
+                              style: GoogleFonts.spaceGrotesk(
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.w700,
+                                  color: _ComparePalette.primary,
+                                  height: 1.0)),
                           const SizedBox(height: 2),
-                          Text('Safety Index', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: _ComparePalette.onSurfaceVariant)),
+                          Text('Safety Index',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: _ComparePalette.onSurfaceVariant)),
                         ],
                       ),
                     ),
@@ -1002,12 +1101,23 @@ class _VerdictCard extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                decoration: BoxDecoration(color: _ComparePalette.primary, borderRadius: BorderRadius.circular(9999)),
-                child: Text(verdict.recommendedLabel, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: const Color(0xFF2C303D))),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                decoration: BoxDecoration(
+                    color: _ComparePalette.primary,
+                    borderRadius: BorderRadius.circular(9999)),
+                child: Text(verdict.recommendedLabel,
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF2C303D))),
               ),
               const SizedBox(height: 8),
-              Text(verdict.confidenceLabel, style: GoogleFonts.inter(fontSize: 10, fontStyle: FontStyle.italic, color: _ComparePalette.onSurfaceVariant)),
+              Text(verdict.confidenceLabel,
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontStyle: FontStyle.italic,
+                      color: _ComparePalette.onSurfaceVariant)),
             ],
           ),
         ),
@@ -1019,12 +1129,14 @@ class _VerdictCard extends StatelessWidget {
 class _BottomDock extends StatelessWidget {
   final VoidCallback onHome;
   final VoidCallback onAnalyse;
-  final VoidCallback onAssistant;
+  final VoidCallback? onAssistant; // nullable: null when no loan is loaded
+  final VoidCallback onProfile;
 
   const _BottomDock({
     required this.onHome,
     required this.onAnalyse,
-    required this.onAssistant,
+    this.onAssistant,
+    required this.onProfile,
   });
 
   @override
@@ -1043,17 +1155,37 @@ class _BottomDock extends StatelessWidget {
               borderRadius: BorderRadius.circular(9999),
               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
               boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 32, offset: const Offset(0, 8)),
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.8),
+                    blurRadius: 32,
+                    offset: const Offset(0, 8)),
               ],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                GestureDetector(onTap: onHome, child: const _DockItem(icon: Icons.home_outlined, label: 'Home')),
-                GestureDetector(onTap: onAnalyse, child: const _DockItem(icon: Icons.analytics_outlined, label: 'Analyse')),
-                GestureDetector(onTap: onAssistant, child: const _DockItem(icon: Icons.smart_toy_outlined, label: 'AI Assistant')),
-                const _DockItem(icon: Icons.compare_arrows, label: 'Compare', selected: true),
-                const _DockItem(icon: Icons.person_outline, label: 'Profile'),
+                GestureDetector(
+                    onTap: onHome,
+                    child: const _DockItem(
+                        icon: Icons.home_outlined, label: 'Home')),
+                GestureDetector(
+                    onTap: onAnalyse,
+                    child: const _DockItem(
+                        icon: Icons.analytics_outlined, label: 'Analyse')),
+                GestureDetector(
+                    onTap: onAssistant,
+                    child: _DockItem(
+                        icon: Icons.smart_toy_outlined,
+                        label: 'AI Assistant',
+                        disabled: onAssistant == null)),
+                const _DockItem(
+                    icon: Icons.compare_arrows,
+                    label: 'Compare',
+                    selected: true),
+                GestureDetector(
+                    onTap: onProfile,
+                    child:
+                        const _DockItem(icon: Icons.person_outline, label: 'Profile')),
               ],
             ),
           ),
@@ -1067,17 +1199,30 @@ class _DockItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
-  const _DockItem({required this.icon, required this.label, this.selected = false});
+  final bool disabled;
+  const _DockItem(
+      {required this.icon,
+      required this.label,
+      this.selected = false,
+      this.disabled = false});
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? _ComparePalette.primary : _ComparePalette.onSurfaceVariant.withValues(alpha: 0.7);
+    final color = selected
+        ? _ComparePalette.primary
+        : disabled
+            ? _ComparePalette.onSurfaceVariant.withValues(alpha: 0.3)
+            : _ComparePalette.onSurfaceVariant.withValues(alpha: 0.7);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 22, color: color),
         const SizedBox(height: 4),
-        Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: selected ? FontWeight.w700 : FontWeight.w600, color: color)),
+        Text(label,
+            style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                color: color)),
       ],
     );
   }

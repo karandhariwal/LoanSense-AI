@@ -6,6 +6,7 @@ import 'package:loansense_ai/data/repositories/loan_assistant_repository.dart';
 import 'package:loansense_ai/data/repositories/http_loan_assistant_repository.dart';
 import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 import 'package:loansense_ai/data/models/loan_comparison_report.dart';
+import 'package:loansense_ai/data/models/loan_history_item.dart';
 
 // --- Base Networking & Repository Providers ---
 
@@ -18,7 +19,8 @@ final loanRepositoryProvider = Provider<LoanRepository>((ref) {
   return LoanRepository(apiClient: client);
 });
 
-final loanAssistantRepositoryProvider = Provider<LoanAssistantRepository>((ref) {
+final loanAssistantRepositoryProvider =
+    Provider<LoanAssistantRepository>((ref) {
   final repo = ref.watch(loanRepositoryProvider);
   return HttpLoanAssistantRepository(loanRepository: repo);
 });
@@ -79,16 +81,23 @@ class UploadNotifier extends StateNotifier<UploadState> {
   }
 }
 
-final uploadProvider = StateNotifierProvider<UploadNotifier, UploadState>((ref) {
+final uploadProvider =
+    StateNotifierProvider<UploadNotifier, UploadState>((ref) {
   final repo = ref.watch(loanRepositoryProvider);
   return UploadNotifier(repo);
 });
 
 // --- Analysis Fetch Provider ---
 
-final analysisProvider = FutureProvider.family<LoanAnalysisReport, String>((ref, loanId) async {
+final analysisProvider =
+    FutureProvider.family<LoanAnalysisReport, String>((ref, loanId) async {
   final repo = ref.watch(loanRepositoryProvider);
   return repo.fetchAnalysis(loanId);
+});
+
+final loanHistoryProvider = FutureProvider<List<LoanHistoryItem>>((ref) async {
+  final repo = ref.watch(loanRepositoryProvider);
+  return repo.fetchLoanHistory();
 });
 
 // --- Comparison State & Provider ---
@@ -127,7 +136,8 @@ class ComparisonNotifier extends StateNotifier<ComparisonState> {
   }
 }
 
-final comparisonProvider = StateNotifierProvider<ComparisonNotifier, ComparisonState>((ref) {
+final comparisonProvider =
+    StateNotifierProvider<ComparisonNotifier, ComparisonState>((ref) {
   final repo = ref.watch(loanRepositoryProvider);
   return ComparisonNotifier(repo);
 });

@@ -23,22 +23,26 @@ class Settings(BaseSettings):
     NVIDIA_LLM_MODEL: str = "meta/llama-3.1-8b-instruct"
     NVIDIA_EMBED_MODEL: str = "nvidia/nv-embedqa-e5-v5"
     
-    # Database
-    DATABASE_URL: str = "sqlite:///./loansense.db"
+    # Database - Load from environment (.env)
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./loansense.db")
     
-    # Redis & Celery
-    REDIS_URL: str = "redis://localhost:6379/0"
+    # Redis & Celery - Load from environment
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     
     # ChromaDB
-    CHROMA_DB_DIR: str = "./chroma_db"
+    CHROMA_DB_DIR: str = os.getenv("CHROMA_DB_DIR", "./chroma_db")
     
-    # Security
-    SECRET_KEY: str = "your-secret-key-here"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Security - CRITICAL: Must be provided via environment variable
+    SECRET_KEY: str = os.getenv("SECRET_KEY") or "change-me-in-production-set-secret-key-env-var"
+    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     
     # Storage
-    UPLOAD_DIR: str = "./uploads"
+    UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./uploads")
+    
+    # API Configuration
+    API_HOST: str = os.getenv("API_HOST", "0.0.0.0")
+    API_PORT: int = int(os.getenv("API_PORT", "8000"))
 
     class Config:
         env_file = ".env"

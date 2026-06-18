@@ -100,6 +100,13 @@ class LoanAnalysisReport {
     };
   }
 
+  /// ⚠️ DEPRECATED: Mock data factory - use real API data instead
+  /// This method generates hardcoded synthetic data for testing only.
+  /// REMOVED: Mock usage in UI screens has been replaced with proper API calls.
+  /// See: [LoanRepository.fetchAnalysis] for the real API method.
+  ///
+  /// Usages of .mock() are resolved to fetch real data.
+  @Deprecated('Use LoanRepository.fetchAnalysis() instead of .mock()')
   factory LoanAnalysisReport.mock({required String loanId}) {
     return LoanAnalysisReport.generateMockReport(
       fileName: "variable_term_loan_agreement.pdf",
@@ -108,8 +115,11 @@ class LoanAnalysisReport {
     );
   }
 
-  // A highly realistic dynamic generator that generates structured reports
-  // deterministically based on the file name and size so it changes for different uploads!
+  /// ⚠️ DEPRECATED: Synthetic mock report generator
+  /// This generates hardcoded deterministic data based on file hash.
+  /// REAL DATA should come from [LoanRepository] and backend AI analysis.
+  /// This exists only for development/demo when backend is not available.
+  @Deprecated('Use LoanRepository.fetchAnalysis() to get real backend data')
   factory LoanAnalysisReport.generateMockReport({
     required String fileName,
     required double fileSizeMb,
@@ -446,7 +456,7 @@ class MetricData {
       value: json['value']?.toString() ?? '',
       valueSuffix: json['valueSuffix']?.toString() ?? '',
       accent: Color(json['accent'] as int? ?? 0xFFC3C6D7),
-      icon: IconData(json['icon'] as int? ?? Icons.help.codePoint, fontFamily: 'MaterialIcons'),
+      icon: IconData(json['icon'] as int? ?? 0xe897, fontFamily: 'MaterialIcons'),
       secondaryLabel: json['secondaryLabel']?.toString() ?? '',
       detailTitle: json['detailTitle']?.toString() ?? '',
       detailBody: json['detailBody']?.toString() ?? '',

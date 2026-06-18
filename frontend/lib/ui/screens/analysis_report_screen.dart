@@ -1,16 +1,16 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
+import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:loansense_ai/core/navigation/app_routes.dart';
 import 'package:loansense_ai/data/models/loan_analysis_report.dart';
+import 'package:loansense_ai/data/repositories/loan_repository.dart';
 import 'package:loansense_ai/ui/screens/chat_screen.dart';
-import 'package:loansense_ai/ui/screens/home_dashboard_screen.dart';
 import 'package:loansense_ai/ui/screens/loan_assistant_screen.dart';
-import 'package:loansense_ai/ui/screens/loan_comparison_screen.dart';
-
 class LoanAnalysisReportScreen extends StatefulWidget {
   final LoanAnalysisReport? report;
   final String? loanId;
@@ -22,6 +22,8 @@ class LoanAnalysisReportScreen extends StatefulWidget {
   });
 
   @override
+
+
   State<LoanAnalysisReportScreen> createState() =>
       _LoanAnalysisReportScreenState();
 }
@@ -36,10 +38,8 @@ class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
   void initState() {
     super.initState();
     _controller = LoanAnalysisController(
-      report: widget.report ??
-          LoanAnalysisReport.mock(
-            loanId: widget.loanId ?? 'lns-demo-042',
-          ),
+      report: widget.report,
+      loanId: widget.loanId ?? widget.report?.loanId ?? '',
     )..load();
 
     _ambientController = AnimationController(
@@ -88,13 +88,7 @@ class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
                               ),
                             );
                           },
-                          onGoHome: () {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(
-                                builder: (_) => const HomeDashboardScreen(),
-                              ),
-                            );
-                          },
+                          onGoHome: () => AppNavigator.goHome(context),
                         ),
                 ),
               ),
@@ -146,12 +140,7 @@ class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const HomeDashboardScreen()),
-                      (route) => false,
-                    );
-                  },
+                  onTap: () => AppNavigator.goHome(context),
                   child: const _NavBarItem(icon: Icons.home_outlined, label: 'Home'),
                 ),
                 const _NavBarItem(
@@ -174,14 +163,14 @@ class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
                 ),
                 GestureDetector(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoanComparisonScreen()),
-                    );
+                    AppNavigator.goToCompare(context);
                   },
                   child: const _NavBarItem(icon: Icons.compare_arrows_outlined, label: 'Compare'),
                 ),
-                const _NavBarItem(icon: Icons.person_outline, label: 'Profile'),
+                GestureDetector(
+                  onTap: () => AppNavigator.goToProfile(context),
+                  child: const _NavBarItem(icon: Icons.person_outline, label: 'Profile'),
+                ),
               ],
             ),
           ),
@@ -192,16 +181,35 @@ class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
 }
 
 class LoanAnalysisController extends ChangeNotifier {
-  LoanAnalysisReport report;
+  LoanAnalysisReport? _report;
+  final String loanId;
   bool isLoading = true;
   bool showSimpleExplanation = false;
   bool showCostExpansion = false;
   final Set<String> expandedAlertIds = <String>{};
 
-  LoanAnalysisController({required this.report});
+  LoanAnalysisController({LoanAnalysisReport? report, required this.loanId}) : _report = report;
+
+  LoanAnalysisReport get report => _report!;
 
   Future<void> load() async {
-    await Future<void>.delayed(const Duration(milliseconds: 1150));
+    if (_report == null) {
+      // Guard: never attempt a network call with an empty/invalid loan ID.
+      if (loanId.isEmpty) {
+        _report = _generateFallbackReport('—');
+        isLoading = false;
+        notifyListeners();
+        return;
+      }
+      try {
+        _report = await LoanRepository().fetchAnalysis(loanId);
+      } catch (e) {
+        developer.log('Error fetching analysis for $loanId: $e');
+        _report = _generateFallbackReport(loanId);
+      }
+    } else {
+      await Future<void>.delayed(const Duration(milliseconds: 1150));
+    }
     isLoading = false;
     notifyListeners();
   }
@@ -224,9 +232,28 @@ class LoanAnalysisController extends ChangeNotifier {
     }
     notifyListeners();
   }
-}
 
-// Shared model classes extracted to lib/data/models/loan_analysis_report.dart
+  static LoanAnalysisReport _generateFallbackReport(String loanId) {
+    return LoanAnalysisReport(
+      loanId: loanId,
+      lenderName: 'Demo Lender',
+      productName: 'Dynamic Demo Loan',
+      healthScore: 7.5,
+      healthSummary: 'Moderate health. Previewing fallback demo data.',
+      detailedSummary: 'This is a demo preview report generated because the backend API is currently unreachable. Real deployment will fetch full AI metrics from the server.',
+      simpleSummary: 'Real-time server connection unavailable. Showing local demo template.',
+      recommendedAction: 'Verify API Connection',
+      contractClarity: '85% Transparent',
+      metrics: const [],
+      alerts: const [],
+      sources: const [],
+      costSlices: const [],
+      emiSeries: const [],
+      clauseChips: const [],
+      extractions: const [],
+    );
+  }
+}
 
 class _LensColors {
   static const background = Color(0xFF131314);
@@ -1029,12 +1056,13 @@ class _ExpandableAlertCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   _CompactChip(text: data.page, accent: data.accent),
-                  const SizedBox(width: 8),
                   _CompactChip(text: data.clause, accent: _LensColors.primary),
-                  const Spacer(),
                   TextButton(
                     onPressed: onOpenReference,
                     child: Text(

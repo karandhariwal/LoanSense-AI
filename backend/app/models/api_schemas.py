@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
 from .risk_clause import RiskClause
@@ -60,6 +61,52 @@ class AnalysisResponse(BaseModel):
     analysis: Optional[LoanAnalysisResponse] = Field(
         default=None,
         description="The actual AI loan analysis results.",
+    )
+
+
+class LoanHistoryItemResponse(BaseModel):
+    """
+    Response item returned by GET /loans.
+    Contains the dashboard-facing summary for one analyzed upload.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "loan_id": "8a7b3c2d-1a2b-3c4d-5e6f-7a8b9c0d1e2f",
+                "lender_name": "Apex Finance Corp",
+                "upload_date": "2026-06-07T13:25:14.000000Z",
+                "status": "COMPLETED",
+                "risk_score": 22.0,
+            }
+        }
+    )
+
+    loan_id: str = Field(
+        ...,
+        description="The unique identifier of the uploaded loan document.",
+    )
+
+    lender_name: str = Field(
+        ...,
+        description="Resolved lender name if available, otherwise a fallback label.",
+    )
+
+    upload_date: datetime = Field(
+        ...,
+        description="The UTC timestamp when the loan document was uploaded.",
+    )
+
+    status: str = Field(
+        ...,
+        description="The current processing status of the loan analysis.",
+    )
+
+    risk_score: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=100.0,
+        description="Derived risk percentage where higher means riskier. Null until analysis is available.",
     )
 
 

@@ -102,6 +102,21 @@ cd c:\Users\Administrator\Desktop\Karan\Loan\frontend
 flutter run
 ```
 
+**If using a real Android device over USB debugging, also run this before `flutter run`:**
+```powershell
+adb reverse tcp:8000 tcp:8000
+```
+
+**If using an Android emulator, run Flutter with the emulator host override:**
+```powershell
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
+```
+
+**Optional explicit override for a real device on Wi‑Fi/LAN instead of USB reverse:**
+```powershell
+flutter run --dart-define=API_BASE_URL=http://YOUR_PC_LOCAL_IP:8000
+```
+
 **Useful Flutter commands while running:**
 | Key | Action                        |
 |-----|-------------------------------|
@@ -154,7 +169,7 @@ docker stop redis-loansense
 |-------|-------|-----|
 | `Retry limit exceeded while trying to reconnect to Celery result store` | Redis is not running | Run `docker start redis-loansense` |
 | `Connection refused on port 6379` | Redis container stopped | Run `docker start redis-loansense` |
-| `Analysis Failed — Connection timeout or network failure` (Flutter) | Backend is not running | Start the backend (Step 3) |
+| `Analysis Failed — Connection timeout or network failure` (Flutter) | Backend is not running, or a real Android device cannot reach `localhost` on your PC | Start the backend (Step 3), then run `adb reverse tcp:8000 tcp:8000` for USB devices or use `flutter run --dart-define=API_BASE_URL=http://YOUR_PC_LOCAL_IP:8000` |
 | `Address already in use :8000` | Old backend process still running | Kill it: `Get-Process -Name python \| Stop-Process` |
 | Celery tasks never complete | Celery worker not started | Start the worker (Step 2) |
 | Flutter `Lost connection to device` | App crashed or device disconnected | Re-run `flutter run` |

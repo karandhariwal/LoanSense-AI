@@ -2,6 +2,7 @@ from decimal import Decimal
 import logging
 from typing import List, Optional
 import numpy_financial as npf
+from app.services.configuration_service import config_service
 
 logger = logging.getLogger(__name__)
 
@@ -152,16 +153,21 @@ class LoanCalculator:
     @staticmethod
     def calculate_safety_score(
         risks: List[dict],
-        base_score: float = 10.0
+        base_score: Optional[float] = None
     ) -> float:
         """
         Heuristic calculator to compute a rule-based safety score.
-        Deducts points based on risk levels of clauses:
-          HIGH risk: -1.5 points each
-          MEDIUM risk: -0.75 points each
-          LOW risk: -0.25 points each
-        Caps the final score between 0.0 and 10.0.
+        Deducts points based on risk levels of clauses using configurable weights:
+          HIGH risk: configured penalty (default -1.5)
+          MEDIUM risk: configured penalty (default -0.75)
+          LOW risk: configured penalty (default -0.25)
+        Caps the final score between min and max configured values.
         """
+        # Load configuration
+        weights = config_service.risk_weights
+        if base_score is None:
+            base_score = weights.base_score
+        
         score = base_score
         for risk in risks:
             # risk can be a dictionary or a RiskClause object
@@ -173,14 +179,16 @@ class LoanCalculator:
             level_str = risk_level.value if hasattr(risk_level, "value") else str(risk_level)
             level_upper = level_str.upper()
 
+            # Use configuration-driven penalty weights instead of hardcoded values
             if level_upper == "HIGH":
-                score -= 1.5
+                score += weights.high_risk_penalty  # Usually negative
             elif level_upper == "MEDIUM":
-                score -= 0.75
+                score += weights.medium_risk_penalty  # Usually negative
             elif level_upper == "LOW":
-                score -= 0.25
+                score += weights.low_risk_penalty  # Usually negative
 
-        return max(0.0, min(10.0, round(score, 1)))
+        # Cap between configured min and max
+        return max(weights.minimum_score, min(weights.base_score, round(score, 1)))
 
 # Let's import numpy to check for NaN in numpy_financial results
 import numpy as np

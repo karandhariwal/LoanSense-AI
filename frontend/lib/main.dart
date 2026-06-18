@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:loansense_ai/core/navigation/app_routes.dart';
 import 'package:loansense_ai/core/theme.dart';
 import 'package:loansense_ai/ui/screens/auth_screen.dart';
+import 'package:loansense_ai/ui/screens/home_dashboard_screen.dart';
 import 'package:loansense_ai/ui/screens/onboarding_screen.dart';
 import 'package:loansense_ai/ui/screens/onboarding_ai_screen.dart';
 import 'package:loansense_ai/ui/screens/onboarding_trust_screen.dart';
-import 'package:loansense_ai/ui/screens/home_dashboard_screen.dart';
+import 'package:loansense_ai/ui/screens/loan_comparison_screen.dart';
+import 'package:loansense_ai/ui/screens/profile_settings_screen.dart';
+import 'package:loansense_ai/ui/screens/scan_screen.dart';
 import 'package:loansense_ai/ui/screens/upload_ai_scan_screen.dart';
 import 'package:loansense_ai/ui/screens/splash_screen.dart';
 
@@ -34,6 +38,12 @@ class _LoanSenseAppState extends State<LoanSenseApp> {
       title: 'LoanSense AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
+      routes: {
+        AppRoutes.home: (_) => const HomeDashboardScreen(),
+        AppRoutes.compare: (_) => const LoanComparisonScreen(),
+        AppRoutes.profile: (_) => const ProfileSettingsScreen(),
+        AppRoutes.scan: (_) => const ScanScreen(),
+      },
       home: !_isInitialized
           ? SplashScreen(
               onInitializationComplete: () {

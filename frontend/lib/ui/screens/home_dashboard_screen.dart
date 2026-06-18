@@ -1,23 +1,25 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:loansense_ai/data/models/loan_analysis_report.dart';
+import 'package:loansense_ai/presentation/providers/active_loan_provider.dart';
 import 'package:loansense_ai/ui/screens/analysis_report_screen.dart';
 import 'package:loansense_ai/ui/screens/upload_ai_scan_screen.dart';
 import 'package:loansense_ai/ui/screens/clause_intelligence_screen.dart';
 import 'package:loansense_ai/ui/screens/loan_comparison_screen.dart';
 import 'package:loansense_ai/ui/screens/profile_settings_screen.dart';
 import 'package:loansense_ai/ui/screens/scan_screen.dart';
-import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 
-class HomeDashboardScreen extends StatefulWidget {
+class HomeDashboardScreen extends ConsumerStatefulWidget {
   const HomeDashboardScreen({super.key});
 
   @override
-  State<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
+  ConsumerState<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
 }
 
-class _HomeDashboardScreenState extends State<HomeDashboardScreen>
+class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _scanController;
 
@@ -28,6 +30,63 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
+  }
+
+  /// Shows a themed snackbar prompting the user to upload a loan document
+  /// before accessing AI-gated features.
+  void _showNoLoanSnackbar(BuildContext context, String feature) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        content: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF201F20).withValues(alpha: 0.90),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFFDBC3A8).withValues(alpha: 0.4),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFDBC3A8).withValues(alpha: 0.12),
+                    blurRadius: 15,
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.upload_file_outlined,
+                    color: Color(0xFFDBC3A8),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Upload a loan document first to use $feature.',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFFE5E2E3),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -151,7 +210,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                     isError
                         ? Icons.error_outline_rounded
                         : Icons.verified_user_outlined,
-                    color: isError ? const Color(0xFFFFB4AB) : const Color(0xFFC3C6D7),
+                    color: isError
+                        ? const Color(0xFFFFB4AB)
+                        : const Color(0xFFC3C6D7),
                     size: 20,
                   ),
                   const SizedBox(width: 12),
@@ -177,6 +238,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    final activeLoan = ref.watch(activeLoanProvider);
+    final hasLoan = activeLoan != null;
+
     return Scaffold(
       backgroundColor: const Color(0xFF131314),
       body: Stack(
@@ -214,9 +278,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
               children: [
                 _buildGreetingSection(),
                 const SizedBox(height: 80),
-                _buildHeroAICard(),
+                hasLoan
+                    ? _buildHeroAICard()
+                    : _buildEmptyState(activeLoan),
                 const SizedBox(height: 80),
-                _buildQuickActionGrid(),
+                _buildQuickActionGrid(activeLoan),
                 const SizedBox(height: 80),
                 _buildIntelligenceHistory(),
               ],
@@ -238,6 +304,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
             right: 0,
             child: _BottomNavBar(
               onAnalyseTap: _pickAndUploadPDF,
+              activeLoan: activeLoan,
+              onNoLoan: (feature) => _showNoLoanSnackbar(context, feature),
             ),
           ),
         ],
@@ -358,7 +426,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.12)),
+                                    color:
+                                        Colors.white.withValues(alpha: 0.12)),
                               ),
                               child: Stack(
                                 fit: StackFit.expand,
@@ -368,7 +437,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                                     child: Image.network(
                                       'https://lh3.googleusercontent.com/aida-public/AB6AXuCw6J8pc6QX4wqooZmuOzg3QS_2YUx2Ta4oSq9-2lsE4SFDB-9S_txwIIkmombcC4qK-J_pQMw70itAMH0NbI_RL5gi_U1DI7HLQmNBW_hx6Uh2WQObO1TBCFYfeYQuf7bXHJEPTZPw0ySSFlhLUP2T8WL1qrZ2ZqcRDlQTbr-aGa_A69QZN9Ldd5vMBE0FPCmRxjO47e2D3zNy701pLLwAWtbj_z_NFCvpthA9B2Bh22qdSKlcCd6EnAt1LHvHdiWETrgMynKykA',
                                       fit: BoxFit.cover,
-                                      color: Colors.black.withValues(alpha: 0.4),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.4),
                                       colorBlendMode: BlendMode.darken,
                                     ),
                                   ),
@@ -406,7 +476,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                           color: const Color(0xFFC3C6D7).withValues(alpha: 0.4),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFC3C6D7).withValues(alpha: 0.8),
+                              color: const Color(0xFFC3C6D7)
+                                  .withValues(alpha: 0.8),
                               blurRadius: 15,
                             ),
                           ],
@@ -423,7 +494,127 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     );
   }
 
-  Widget _buildQuickActionGrid() {
+  /// ─── Empty State (shown when no loan is loaded) ───
+  Widget _buildEmptyState(LoanAnalysisReport? _) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        color: Colors.white.withValues(alpha: 0.03),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFC3C6D7).withValues(alpha: 0.08),
+            blurRadius: 20,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Icon with ambient glow ring
+                AnimatedBuilder(
+                  animation: _scanController,
+                  builder: (context, _) {
+                    return Container(
+                      width: 88,
+                      height: 88,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFFC3C6D7).withValues(alpha: 0.08),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFC3C6D7).withValues(
+                                alpha: 0.15 + _scanController.value * 0.12),
+                            blurRadius: 28 + _scanController.value * 12,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                        border: Border.all(
+                            color: const Color(0xFFC3C6D7)
+                                .withValues(alpha: 0.2)),
+                      ),
+                      child: const Icon(
+                        Icons.upload_file_outlined,
+                        size: 40,
+                        color: Color(0xFFC3C6D7),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  'No Loan Document',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFFE5E2E3),
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Upload a PDF loan agreement to unlock AI-powered analysis, clause intelligence, and risk detection.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFFC7C6CC),
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Feature pills
+                const Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    _FeaturePill(label: 'AI Risk Analysis'),
+                    _FeaturePill(label: 'Clause Intelligence'),
+                    _FeaturePill(label: 'AI Assistant'),
+                    _FeaturePill(label: 'Loan Comparison'),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _PrimaryButton(
+                      icon: Icons.upload_file_outlined,
+                      label: 'Upload PDF',
+                      onPressed: _pickAndUploadPDF,
+                    ),
+                    _SecondaryButton(
+                      label: 'Scan Document',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ScanScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActionGrid(LoanAnalysisReport? activeLoan) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -449,10 +640,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
             crossAxisSpacing: 16,
             childAspectRatio: 1.5,
             children: [
-              const _ActionCard(
+              _ActionCard(
                 icon: Icons.compare_arrows,
                 title: 'Compare Loans',
                 subtitle: 'Side-by-side technical audit.',
+                onTap: activeLoan == null
+                    ? () => _showNoLoanSnackbar(context, 'Loan Comparison')
+                    : () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LoanComparisonScreen(),
+                        ),
+                      ),
               ),
               const _ActionCard(
                 icon: Icons.calculate_outlined,
@@ -463,19 +662,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                 icon: Icons.smart_toy_outlined,
                 title: 'Ask AI',
                 subtitle: 'Direct query on loan terms.',
-                isActive: true,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ClauseIntelligenceScreen(
-                        report: LoanAnalysisReport.mock(
-                          loanId: 'lns-demo-042',
+                isActive: activeLoan != null,
+                onTap: activeLoan == null
+                    ? () => _showNoLoanSnackbar(context, 'AI Assistant')
+                    : () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ClauseIntelligenceScreen(
+                            report: activeLoan,
+                            loanId: activeLoan.loanId,
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
               ),
               _ActionCard(
                 icon: Icons.security_outlined,
@@ -485,7 +683,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const LoanAnalysisReportScreen(),
+                      builder: (_) => LoanAnalysisReportScreen(
+                        report: activeLoan,
+                        loanId: activeLoan?.loanId,
+                      ),
                     ),
                   );
                 },
@@ -609,7 +810,8 @@ class _TopAppBar extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.12)),
                   image: const DecorationImage(
                     image: NetworkImage(
                       'https://lh3.googleusercontent.com/aida-public/AB6AXuA61fGi0g5PlD1-3yeoANDNZzNKyOC8ji3lBH58C_NyHNcnpD1HXCCoriUKDuvjwUyNOGlhi4QvZllMJwFvrputZroFTtmyDkRmkviJD-Nff4ZZ7YKxJHEnBT9Y9DWnrZSkj48WoncEPiQUWOxnbfKrOK78PsUr-zFpazYDyEZznGc_c3bMsRk8VZ5tXs809bA9vxbDlePThlz6pcUnBMOB0DWP_j6iad-Pk3Kyj1b_iOzG84H7Gyemxnl7jkMsYewgIZeTg7vTgA',
@@ -689,10 +891,19 @@ class _TopAppBar extends StatelessWidget {
 
 class _BottomNavBar extends StatelessWidget {
   final VoidCallback? onAnalyseTap;
-  const _BottomNavBar({this.onAnalyseTap});
+  final LoanAnalysisReport? activeLoan;
+  final void Function(String feature)? onNoLoan;
+
+  const _BottomNavBar({
+    this.onAnalyseTap,
+    this.activeLoan,
+    this.onNoLoan,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final hasLoan = activeLoan != null;
+
     return Center(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(9999),
@@ -700,11 +911,10 @@ class _BottomNavBar extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
             width: MediaQuery.of(context).size.width * 0.9,
-            constraints: const BoxConstraints(maxWidth: 512), // max-w-lg
+            constraints: const BoxConstraints(maxWidth: 512),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF201F20)
-                  .withValues(alpha: 0.6), // surface-container/60
+              color: const Color(0xFF201F20).withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(9999),
               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
               gradient: LinearGradient(
@@ -733,22 +943,30 @@ class _BottomNavBar extends StatelessWidget {
                   child: const _NavBarItem(
                       icon: Icons.analytics_outlined, label: 'Analyse'),
                 ),
+                // AI Assistant — guarded: requires an active loan
                 GestureDetector(
                   onTap: () {
+                    if (!hasLoan) {
+                      onNoLoan?.call('AI Assistant');
+                      return;
+                    }
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => ClauseIntelligenceScreen(
-                          report: LoanAnalysisReport.mock(
-                            loanId: 'lns-demo-042',
-                          ),
+                          report: activeLoan,
+                          loanId: activeLoan!.loanId,
                         ),
                       ),
                     );
                   },
-                  child: const _NavBarItem(
-                      icon: Icons.smart_toy_outlined, label: 'AI Assistant'),
+                  child: _NavBarItem(
+                    icon: Icons.smart_toy_outlined,
+                    label: 'AI Assistant',
+                    isDisabled: !hasLoan,
+                  ),
                 ),
+                // Compare — allow freely; the screen has its own upload flow
                 GestureDetector(
                   onTap: () {
                     Navigator.push(
@@ -786,18 +1004,22 @@ class _NavBarItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isSelected;
+  final bool isDisabled;
 
   const _NavBarItem({
     required this.icon,
     required this.label,
     this.isSelected = false,
+    this.isDisabled = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final color = isSelected
         ? const Color(0xFFC3C6D7)
-        : const Color(0xFFC7C6CC).withValues(alpha: 0.7);
+        : isDisabled
+            ? const Color(0xFFC7C6CC).withValues(alpha: 0.3)
+            : const Color(0xFFC7C6CC).withValues(alpha: 0.7);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1099,7 +1321,8 @@ class _HistoryCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
@@ -1151,6 +1374,35 @@ class _HistoryCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small rounded pill chip used in the empty state to advertise locked features.
+class _FeaturePill extends StatelessWidget {
+  final String label;
+  const _FeaturePill({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(9999),
+        border: Border.all(
+          color: const Color(0xFFC3C6D7).withValues(alpha: 0.2),
+        ),
+        color: const Color(0xFFC3C6D7).withValues(alpha: 0.06),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFFC3C6D7).withValues(alpha: 0.8),
+          letterSpacing: 0.3,
         ),
       ),
     );

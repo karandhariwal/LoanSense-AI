@@ -5,9 +5,9 @@
 /// Premium LoanSense AI — Profile & Settings screen.
 ///
 /// Architecture:
-///   UI      → ProfileSettingsScreen (StatefulWidget)
-///   State   → _ProfileSettingsController (ChangeNotifier-like StatefulWidget logic)
-///   Data    → UserProfileRepository (async mock, backend-ready)
+///   UI      → ProfileSettingsScreen (ConsumerStatefulWidget)
+///   State   → profileSettingsProvider (AsyncNotifier<ProfileSettingsState>)
+///   Data    → HttpUserProfileRepository  (GET/PATCH /user/profile & /user/settings)
 ///   Models  → UserProfile, AppSettings, NotificationSettings, PrivacySettings
 ///
 /// Widget Hierarchy:
@@ -26,9 +26,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:loansense_ai/core/navigation/app_routes.dart';
+import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 import 'package:loansense_ai/data/models/user_profile_model.dart';
-import 'package:loansense_ai/data/repositories/user_profile_repository.dart';
+import 'package:loansense_ai/presentation/providers/active_loan_provider.dart';
+import 'package:loansense_ai/presentation/providers/profile_providers.dart';
+import 'package:loansense_ai/ui/screens/clause_intelligence_screen.dart';
 
 // ============================================================
 // COLOR CONSTANTS — matches HTML/Tailwind design token spec
@@ -53,24 +58,19 @@ class _C {
 // MAIN SCREEN
 // ============================================================
 
-class ProfileSettingsScreen extends StatefulWidget {
+class ProfileSettingsScreen extends ConsumerStatefulWidget {
   /// [onNavigate] lets the parent (e.g. home nav) react to nav-bar taps.
   final void Function(int index)? onNavigate;
 
   const ProfileSettingsScreen({super.key, this.onNavigate});
 
   @override
-  State<ProfileSettingsScreen> createState() => _ProfileSettingsScreenState();
+  ConsumerState<ProfileSettingsScreen> createState() =>
+      _ProfileSettingsScreenState();
 }
 
-class _ProfileSettingsScreenState extends State<ProfileSettingsScreen>
+class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen>
     with TickerProviderStateMixin {
-  // ── Repository ─────────────────────────────────────────────
-  final _repo = UserProfileRepositoryProvider.instance;
-
-  // ── Screen state ───────────────────────────────────────────
-  ProfileSettingsState _state = ProfileSettingsState.initial();
-
   // ── Animation controllers ───────────────────────────────────
   late final AnimationController _scanController;
   late final AnimationController _glowController;
@@ -88,8 +88,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
-
-    _loadData();
   }
 
   @override
@@ -99,40 +97,18 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen>
     super.dispose();
   }
 
-  // ── Data loading ────────────────────────────────────────────
-
-  Future<void> _loadData() async {
-    setState(() => _state = _state.copyWith(isLoading: true));
-    try {
-      final profile = await _repo.fetchProfile();
-      final settings = await _repo.fetchSettings();
-      if (mounted) {
-        setState(() => _state = _state.copyWith(
-              profile: profile,
-              settings: settings,
-              isLoading: false,
-            ));
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _state = _state.copyWith(
-              isLoading: false,
-              errorMessage: 'Failed to load profile.',
-            ));
-      }
-    }
-  }
+  // ── Notifier shorthand ──────────────────────────────────────
+  ProfileSettingsNotifier get _notifier =>
+      ref.read(profileSettingsProvider.notifier);
 
   // ── Settings mutators ───────────────────────────────────────
 
   void _updateSettings(AppSettings updated) {
-    setState(() => _state = _state.copyWith(settings: updated));
-    _repo.updateSettings(updated); // fire-and-forget async persist
+    _notifier.updateSettings(updated);
   }
 
   void _updateProfile(UserProfile updated) {
-    setState(() => _state = _state.copyWith(profile: updated));
-    _repo.updateProfile(updated);
+    _notifier.updateProfile(updated);
   }
 
   // ── Actions ─────────────────────────────────────────────────
@@ -147,17 +123,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen>
     );
     if (!confirmed || !mounted) return;
 
-    setState(() => _state = _state.copyWith(isSaving: true));
     try {
-      await _repo.deleteUploadedDocuments();
+      await _notifier.deleteUploadedDocuments();
       if (mounted) {
         _showToast('All documents deleted securely.', isError: false);
-        setState(() => _state = _state.copyWith(isSaving: false));
       }
     } catch (_) {
       if (mounted) {
         _showToast('Delete failed. Please try again.', isError: true);
-        setState(() => _state = _state.copyWith(isSaving: false));
       }
     }
   }
@@ -172,8 +145,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen>
     );
     if (!confirmed || !mounted) return;
 
-    await _repo.signOut();
-    if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+    await _notifier.signOut();
+    if (mounted) AppNavigator.goHome(context);
   }
 
   void _onViewAuditLog() {
@@ -188,28 +161,28 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen>
     _showToast('Opening Terms of Service…', isError: false);
   }
 
-  Future<void> _onEditProfile() async {
+  Future<void> _onEditProfile(ProfileSettingsState state) async {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _EditProfileSheet(
-        profile: _state.profile,
+        profile: state.profile,
         onSave: _updateProfile,
       ),
     );
   }
 
-  Future<void> _onLanguageSelect() async {
+  Future<void> _onLanguageSelect(ProfileSettingsState state) async {
     final selected = await showModalBottomSheet<AppLanguage>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _LanguagePickerSheet(
-        current: _state.settings.language,
+        current: state.settings.language,
       ),
     );
     if (selected != null) {
-      _updateSettings(_state.settings.copyWith(language: selected));
+      _updateSettings(state.settings.copyWith(language: selected));
     }
   }
 
@@ -286,11 +259,47 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen>
     );
   }
 
+  void _handleBottomNavigation(int index, LoanAnalysisReport? activeLoan) {
+    widget.onNavigate?.call(index);
+    switch (index) {
+      case 0:
+        AppNavigator.goHome(context);
+        return;
+      case 1:
+        AppNavigator.goToScan(context);
+        return;
+      case 2:
+        if (activeLoan == null) {
+          _showToast(
+            'Upload a loan document first to use AI Assistant.',
+            isError: true,
+          );
+          return;
+        }
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ClauseIntelligenceScreen(
+              report: activeLoan,
+              loanId: activeLoan.loanId,
+            ),
+          ),
+        );
+        return;
+      case 3:
+        AppNavigator.goToCompare(context);
+        return;
+      case 4:
+        return;
+    }
+  }
+
   // ── Build ────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
+    final asyncState = ref.watch(profileSettingsProvider);
+    final activeLoan = ref.watch(activeLoanProvider);
 
     return Scaffold(
       backgroundColor: _C.background,
@@ -308,48 +317,67 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen>
               SliverToBoxAdapter(
                 child: SizedBox(height: topPad + 72), // space for top bar
               ),
-              if (_state.isLoading)
+              // ── Loading ──────────────────────────────────────
+              if (asyncState.isLoading)
                 const SliverToBoxAdapter(child: _LoadingShimmer())
+              // ── Error ────────────────────────────────────────
+              else if (asyncState.hasError)
+                SliverToBoxAdapter(
+                  child: _ErrorView(
+                    message: asyncState.error.toString(),
+                    onRetry: () => ref
+                        .read(profileSettingsProvider.notifier)
+                        .refresh(),
+                  ),
+                )
+              // ── Data ─────────────────────────────────────────
               else ...[
                 SliverToBoxAdapter(
                   child: _AccountSection(
-                    profile: _state.profile,
+                    profile: asyncState.requireValue.profile,
                     scanController: _scanController,
-                    onTap: _onEditProfile,
+                    onTap: () =>
+                        _onEditProfile(asyncState.requireValue),
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 48)),
                 SliverToBoxAdapter(
                   child: _PreferencesSection(
-                    settings: _state.settings,
-                    onLanguageTap: _onLanguageSelect,
+                    settings: asyncState.requireValue.settings,
+                    onLanguageTap: () =>
+                        _onLanguageSelect(asyncState.requireValue),
                     onThemeChanged: (mode) => _updateSettings(
-                        _state.settings.copyWith(themeMode: mode)),
+                        asyncState.requireValue.settings
+                            .copyWith(themeMode: mode)),
                     onAiStyleChanged: (style) => _updateSettings(
-                        _state.settings.copyWith(aiResponseStyle: style)),
+                        asyncState.requireValue.settings
+                            .copyWith(aiResponseStyle: style)),
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 48)),
                 SliverToBoxAdapter(
                   child: _NotificationsSection(
-                    notifications: _state.settings.notifications,
+                    notifications:
+                        asyncState.requireValue.settings.notifications,
                     onChanged: (n) => _updateSettings(
-                        _state.settings.copyWith(notifications: n)),
+                        asyncState.requireValue.settings
+                            .copyWith(notifications: n)),
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 48)),
                 SliverToBoxAdapter(
                   child: _PrivacySection(
-                    privacy: _state.settings.privacy,
+                    privacy: asyncState.requireValue.settings.privacy,
                     onDeleteDocuments: _onDeleteDocuments,
-                    onPrivacyChanged: (p) =>
-                        _updateSettings(_state.settings.copyWith(privacy: p)),
+                    onPrivacyChanged: (p) => _updateSettings(
+                        asyncState.requireValue.settings
+                            .copyWith(privacy: p)),
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 48)),
                 SliverToBoxAdapter(
                   child: _AboutSection(
-                    version: _state.settings.appVersion,
+                    version: asyncState.requireValue.settings.appVersion,
                     onViewAuditLog: _onViewAuditLog,
                     onPrivacyPolicy: _onPrivacyPolicy,
                     onTermsOfService: _onTermsOfService,
@@ -364,12 +392,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen>
             ],
           ),
 
-          // Fixed top app bar
+          // Fixed top app bar — show cached/default profile while loading
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: _TopAppBar(topPadding: topPad, profile: _state.profile),
+            child: _TopAppBar(
+              topPadding: topPad,
+              profile: asyncState.valueOrNull?.profile ??
+                  UserProfile.mock(),
+            ),
           ),
 
           // Fixed bottom nav bar
@@ -379,7 +411,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen>
             right: 0,
             child: _BottomNavBar(
               selectedIndex: 4,
-              onNavigate: widget.onNavigate,
+              onNavigate: (index) => _handleBottomNavigation(index, activeLoan),
             ),
           ),
         ],
@@ -452,7 +484,176 @@ class _AmbientBackground extends StatelessWidget {
 }
 
 // ============================================================
+// LOADING SHIMMER
+// ============================================================
+
+class _LoadingShimmer extends StatefulWidget {
+  const _LoadingShimmer();
+
+  @override
+  State<_LoadingShimmer> createState() => _LoadingShimmerState();
+}
+
+class _LoadingShimmerState extends State<_LoadingShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) {
+        final opacity = 0.04 + _anim.value * 0.06;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Section title placeholder
+              Container(
+                height: 28,
+                width: 120,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: _C.primary.withOpacity(opacity),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              // Card placeholder
+              Container(
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(opacity),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.07)),
+                ),
+              ),
+              const SizedBox(height: 48),
+              Container(
+                height: 28,
+                width: 150,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: _C.primary.withOpacity(opacity),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              Container(
+                height: 160,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(opacity),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.07)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ============================================================
+// ERROR VIEW
+// ============================================================
+
+class _ErrorView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorView({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _C.error.withOpacity(0.08),
+                border: Border.all(color: _C.error.withOpacity(0.2)),
+              ),
+              child: const Icon(
+                Icons.wifi_off_rounded,
+                color: _C.error,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Unable to load profile',
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: _C.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: _C.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 28),
+            GestureDetector(
+              onTap: onRetry,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: _C.primary.withOpacity(0.08),
+                  border: Border.all(color: _C.primary.withOpacity(0.3)),
+                ),
+                child: Text(
+                  'Retry',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _C.primary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
 // TOP APP BAR
+
 // ============================================================
 
 class _TopAppBar extends StatelessWidget {
@@ -1757,8 +1958,7 @@ class _BottomNavBar extends StatelessWidget {
                 return GestureDetector(
                   onTap: () {
                     HapticFeedback.selectionClick();
-                    onNavigate?.call(i);
-                    if (!isSelected) Navigator.of(context).pop();
+                    if (!isSelected) onNavigate?.call(i);
                   },
                   behavior: HitTestBehavior.opaque,
                   child: Column(
@@ -1798,36 +1998,6 @@ class _BottomNavBar extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// LOADING SHIMMER
-// ============================================================
-
-class _LoadingShimmer extends StatelessWidget {
-  const _LoadingShimmer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-      child: Column(
-        children: List.generate(4, (i) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Container(
-              height: 80,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: Colors.white.withOpacity(0.03),
-                border: Border.all(color: Colors.white.withOpacity(0.06)),
-              ),
-            ),
-          );
-        }),
       ),
     );
   }

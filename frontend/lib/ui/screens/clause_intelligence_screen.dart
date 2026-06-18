@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
+import 'dart:developer' as developer;
+import 'package:loansense_ai/core/navigation/app_routes.dart';
+import 'package:loansense_ai/data/repositories/loan_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:loansense_ai/data/models/loan_analysis_report.dart';
-import 'package:loansense_ai/ui/screens/home_dashboard_screen.dart';
 import 'package:loansense_ai/ui/screens/chat_screen.dart';
-import 'package:loansense_ai/ui/screens/loan_comparison_screen.dart';
-
 // ─── Design Tokens & Color Palettes (Aligned with code.html & analysis_report_screen.dart) ───
 class _ConsoleColors {
   static const background = Color(0xFF131314);
@@ -83,209 +83,111 @@ class ClauseIntelligenceItem {
     required this.category,
     required this.accent,
   });
+}
 
-  factory ClauseIntelligenceItem.fromAlert(
-    RiskAlertData alert,
-    String category, {
-    String? realWorldImpact,
-    String? simpleExplanation,
-  }) {
+class ClauseIntelligenceController extends ChangeNotifier {
+  LoanAnalysisReport? _report;
+  final String loanId;
+  bool isLoading = true;
+  bool isScanning = true;
+  double scanProgress = 0.0;
+  String? selectedClauseId;
+  String selectedSeverityFilter = 'All';
+  String searchQuery = '';
+  final Set<String> simpleExplanationIds = <String>{};
+  final Set<String> bookmarkedIds = <String>{};
+  bool isTypingExplanation = false;
+  String typedExplanation = '';
+
+  List<ClauseIntelligenceItem> allClauses = [];
+  List<ClauseIntelligenceItem> filteredClauses = [];
+
+  ClauseIntelligenceController({LoanAnalysisReport? report, required this.loanId}) : _report = report {
+    if (_report != null) {
+      allClauses = _report!.alerts.map((a) => _mapAlertToItem(a)).toList();
+      _applyFilters();
+      isLoading = false;
+      isScanning = false;
+    }
+  }
+
+  LoanAnalysisReport get report => _report!;
+
+  static ClauseIntelligenceItem _mapAlertToItem(RiskAlertData alert) {
+    String category = 'General';
+    final lowerTitle = alert.title.toLowerCase();
+    final lowerClause = alert.clause.toLowerCase();
+    if (lowerTitle.contains('prepay') || lowerTitle.contains('penalty') || lowerTitle.contains('exit') || lowerClause.contains('prepayment')) {
+      category = 'Exit Terms';
+    } else if (lowerTitle.contains('rate') || lowerTitle.contains('interest') || lowerTitle.contains('reset') || lowerClause.contains('interest')) {
+      category = 'Interest Rate';
+    } else if (lowerTitle.contains('fee') || lowerTitle.contains('charge') || lowerTitle.contains('admin')) {
+      category = 'Fees & Charges';
+    }
+
     return ClauseIntelligenceItem(
       id: alert.id,
-      section: alert.clause.contains('Clause')
-          ? alert.clause.replaceFirst('Clause ', 'Section ')
-          : alert.clause,
+      section: alert.clause.isNotEmpty ? alert.clause : 'Clause',
       title: alert.title,
       originalText: alert.body,
       severity: alert.severity,
-      aiExplanation: alert.explanation,
-      realWorldImpact: realWorldImpact ??
-          "Potential monthly impact or financial reset depending on inflation cycles.",
-      simpleExplanation: simpleExplanation ??
-          "This clause gives the bank more power over your loan terms. Make sure you understand the reset trigger conditions.",
-      page: alert.page,
+      aiExplanation: alert.explanation.isNotEmpty ? alert.explanation : alert.body,
+      realWorldImpact: 'Potential extra costs over the term of the loan if this condition is triggered.',
+      simpleExplanation: 'This clause means that: ${alert.body}',
+      page: alert.page.isNotEmpty ? alert.page : 'Page 1',
       category: category,
       accent: alert.accent,
     );
   }
-}
 
-// ─── Controller / State Management (Clean Business Logic) ───
-class ClauseIntelligenceController extends ChangeNotifier {
-  final LoanAnalysisReport report;
+  Future<void> load() async {
+    isLoading = true;
+    isScanning = true;
+    scanProgress = 0.0;
+    notifyListeners();
 
-  // Entire Dataset
-  List<ClauseIntelligenceItem> allClauses = [];
-
-  // Filtered & Searched Dataset
-  List<ClauseIntelligenceItem> filteredClauses = [];
-
-  // Interactive UI State
-  String searchQuery = '';
-  String selectedSeverityFilter =
-      'All'; // 'All', 'Critical', 'Medium', 'Verified'
-  String? selectedClauseId;
-
-  // Secondary dynamic states
-  final Set<String> bookmarkedIds = {};
-  final Set<String> simpleExplanationIds = {};
-  bool isScanning = true;
-  double scanProgress = 0.0;
-
-  // Simple explanation dynamic typing state
-  bool isTypingExplanation = false;
-  String typedExplanation = '';
-  Timer? _typingTimer;
-
-  ClauseIntelligenceController({required this.report}) {
-    _initializeDataset();
-  }
-
-  void _initializeDataset() {
-    // We populate the detailed Clause console from the loan report alerts.
-    // If the report doesn't have alerts, we generate deterministic high-fidelity clauses.
-    if (report.alerts.isNotEmpty) {
-      allClauses = report.alerts.map((alert) {
-        String cat = "Financial";
-        String rwi =
-            "Historical adjustments suggest monthly outflow volatility.";
-        String simple =
-            "This is legal jargon. In plain English, the lender controls the terms under standard index rules.";
-
-        // Deterministic high-quality contents for report alerts
-        if (alert.title.toLowerCase().contains('pre-payment') ||
-            alert.title.toLowerCase().contains('foreclosure')) {
-          cat = "Exit Charges";
-          rwi =
-              "Closing this loan early to switch to a cheaper lender will cost a flat penalty on principal.";
-          simple =
-              "If you try to pay off this loan early or switch to another bank, they will charge you a fee. It makes early payment expensive.";
-        } else if (alert.title.toLowerCase().contains('interest') ||
-            alert.title.toLowerCase().contains('rate')) {
-          cat = "Interest Terms";
-          rwi =
-              "Based on market index fluctuations, your EMI could spike without warning.";
-          simple =
-              "The bank can change your interest rate based on their internal rules, making your monthly bills go up suddenly.";
-        } else if (alert.title.toLowerCase().contains('fees') ||
-            alert.title.toLowerCase().contains('hidden')) {
-          cat = "Administrative";
-          rwi =
-              "Processing charges and service taxes compound quiet liabilities.";
-          simple =
-              "There are extra administrative fees quietly added to your account quarterly. Make sure they are waived.";
-        } else if (alert.title.toLowerCase().contains('insurance')) {
-          cat = "Mandates";
-          rwi =
-              "Mandates an insurance premium which adds directly to principal capitalization.";
-          simple =
-              "You must maintain a life insurance policy listing the bank as the payout recipient to cover the debt if you pass away.";
-        }
-
-        return ClauseIntelligenceItem.fromAlert(
-          alert,
-          cat,
-          realWorldImpact: rwi,
-          simpleExplanation: simple,
-        );
-      }).toList();
-    } else {
-      // Fallback premium mock dataset aligned with HTML/PNG
-      allClauses = [
-        const ClauseIntelligenceItem(
-          id: 'clause-rate',
-          section: 'Section 4.2',
-          title: 'Rate Fluctuation',
-          originalText:
-              '4.2. Interest Adjustment: The Lender reserves the absolute right to unilaterally adjust the Base Rate and Margin at any interval based on internal liquidity assessments. Borrowers shall be notified post-facto through electronic channels.',
-          severity: 'Critical',
-          aiExplanation:
-              'This clause allows the lender to increase your EMI later without your prior consent. It creates an unpredictable repayment schedule.',
-          realWorldImpact:
-              'Based on historic index shifts, your monthly payment could increase by up to \$145/month with zero warning.',
-          simpleExplanation:
-              'The bank can raise your interest rate whenever they want, and they will only tell you after they\'ve done it. This means your monthly payment could go up suddenly.',
-          page: 'Page 4',
-          category: 'Interest Terms',
-          accent: _ConsoleColors.error,
-        ),
-        const ClauseIntelligenceItem(
-          id: 'clause-prepay',
-          section: 'Section 9.1',
-          title: 'Prepayment Penalty',
-          originalText:
-              '9.1. Prepayment Penalties: Any partial or full prepayment of the outstanding principal prior to the 24th installment will incur a flat fee of 3.5% of the total loan amount.',
-          severity: 'Medium',
-          aiExplanation:
-              'A prepayment penalty locks you into this loan for 24 months. Refinancing or paying early is heavily penalized.',
-          realWorldImpact:
-              'Closing this loan early to switch to a cheaper lender will cost you an extra \$3,500 in penalty fees.',
-          simpleExplanation:
-              'If you try to pay off this loan early or switch to a cheaper bank in the first two years, you have to pay a big fee (3.5% of your loan). It traps you from saving money.',
-          page: 'Page 11',
-          category: 'Exit Charges',
-          accent: _ConsoleColors.tertiary,
-        ),
-        const ClauseIntelligenceItem(
-          id: 'clause-insurance',
-          section: 'Section 12.5',
-          title: 'Insurance Mandate',
-          originalText:
-              '12.5. Insurance Requirement: Borrowers must maintain Credit Life insurance for the duration of the term, with the Lender listed as the primary beneficiary.',
-          severity: 'Verified',
-          aiExplanation:
-              'Standard protective clause. Credit Life insurance protects your family from debt liabilities in unforeseen circumstances.',
-          realWorldImpact:
-              'Ensures your outstanding debt is completely paid off by the insurer in case of death, protecting family wealth.',
-          simpleExplanation:
-              'You must keep life insurance so that if anything happens to you, the insurance company will pay off the loan instead of leaving the debt to your family.',
-          page: 'Page 14',
-          category: 'Mandates',
-          accent: _ConsoleColors.primary,
-        ),
-        const ClauseIntelligenceItem(
-          id: 'clause-jurisdiction',
-          section: 'Section 7.8',
-          title: 'Out-Of-State Court Venue',
-          originalText:
-              '7.8. Jurisdiction: Any disputes arising out of this agreement shall be subject to the exclusive jurisdiction of courts located in the Lender\'s home state, regardless of the borrower\'s location.',
-          severity: 'Medium',
-          aiExplanation:
-              'Requires legal actions to take place far from home. Increases the cost and complexity of defending your rights.',
-          realWorldImpact:
-              'If you need to sue the lender, you must travel to their headquarters state, costing upwards of \$5,000 in travel and out-of-state legal counsel.',
-          simpleExplanation:
-              'If you have a disagreement, you have to go to court in the bank\'s home city, even if it\'s thousands of miles away. It makes it hard and expensive to fight back.',
-          page: 'Page 8',
-          category: 'Legal Terms',
-          accent: _ConsoleColors.tertiary,
-        ),
-        const ClauseIntelligenceItem(
-          id: 'clause-waiver',
-          section: 'Section 14.1',
-          title: 'Processing Fee Waiver',
-          originalText:
-              '14.1. Promotional Waiver: Processing fees are waived in full for borrowers demonstrating a Tier 1 credit bureau score (exceeding 800) at sanction.',
-          severity: 'Verified',
-          aiExplanation:
-              'Favorable tier benefit. Saves money upfront on loan initiation charges.',
-          realWorldImpact:
-              'Saves an immediate upfront expense of \$450 in administrative and documentation fees.',
-          simpleExplanation:
-              'Since you have excellent credit, the bank is giving you a special deal: you don\'t have to pay any signup or processing fees. You save \$450 immediately.',
-          page: 'Page 2',
-          category: 'Administrative',
-          accent: _ConsoleColors.primary,
-        ),
-      ];
+    // Guard: never attempt a network call with an empty/invalid loan ID.
+    if (loanId.isEmpty) {
+      developer.log('ClauseIntelligenceController: no loanId provided, skipping fetch.');
+      allClauses = [];
+      filteredClauses = [];
+      isScanning = false;
+      isLoading = false;
+      notifyListeners();
+      return;
     }
 
-    if (allClauses.isNotEmpty) {
-      selectedClauseId = allClauses.first.id;
+    final progressTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
+      if (scanProgress < 0.9) {
+        scanProgress += 0.02;
+        notifyListeners();
+      }
+    });
+
+    try {
+      _report = await LoanRepository().fetchAnalysis(loanId);
+    } catch (e) {
+      developer.log('Error fetching analysis for $loanId: $e');
+      _report = _generateFallbackReport(loanId);
     }
 
-    // Simulate initial premium neural scanning
-    _simulateScanning();
+    allClauses = _report!.alerts.map((a) => _mapAlertToItem(a)).toList();
+    _applyFilters();
+
+    progressTimer.cancel();
+
+    Timer.periodic(const Duration(milliseconds: 15), (timer) {
+      if (scanProgress < 1.0) {
+        scanProgress += 0.05;
+        if (scanProgress > 1.0) scanProgress = 1.0;
+        notifyListeners();
+      } else {
+        isScanning = false;
+        isLoading = false;
+        timer.cancel();
+        notifyListeners();
+      }
+    });
   }
 
   void _simulateScanning() {
@@ -293,67 +195,34 @@ class ClauseIntelligenceController extends ChangeNotifier {
     scanProgress = 0.0;
     notifyListeners();
 
-    Timer.periodic(const Duration(milliseconds: 40), (timer) {
-      scanProgress += 0.025;
-      if (scanProgress >= 1.0) {
-        scanProgress = 1.0;
+    Timer.periodic(const Duration(milliseconds: 30), (timer) {
+      if (scanProgress < 1.0) {
+        scanProgress += 0.02;
+        if (scanProgress > 1.0) scanProgress = 1.0;
+        notifyListeners();
+      } else {
         isScanning = false;
         timer.cancel();
-        _applyFilters();
+        notifyListeners();
       }
-      notifyListeners();
     });
   }
 
-  void _applyFilters() {
-    filteredClauses = allClauses.where((clause) {
-      final matchesSearch = clause.title
-              .toLowerCase()
-              .contains(searchQuery.toLowerCase()) ||
-          clause.section.toLowerCase().contains(searchQuery.toLowerCase()) ||
-          clause.originalText
-              .toLowerCase()
-              .contains(searchQuery.toLowerCase()) ||
-          clause.category.toLowerCase().contains(searchQuery.toLowerCase());
-
-      final matchesSeverity = selectedSeverityFilter == 'All' ||
-          clause.severity.toLowerCase() == selectedSeverityFilter.toLowerCase();
-
-      return matchesSearch && matchesSeverity;
-    }).toList();
-
-    // Reset selection to the first available item if previous selection is filtered out
-    if (filteredClauses.isNotEmpty) {
-      if (selectedClauseId == null ||
-          !filteredClauses.any((c) => c.id == selectedClauseId)) {
-        selectedClauseId = filteredClauses.first.id;
-      }
-    } else {
-      selectedClauseId = null;
-    }
-    notifyListeners();
-  }
-
   void selectClause(String id) {
-    if (selectedClauseId == id) return;
     selectedClauseId = id;
-
-    // Clear typing states
-    _typingTimer?.cancel();
-    isTypingExplanation = false;
-    typedExplanation = '';
-
     notifyListeners();
   }
 
   void updateSearch(String query) {
     searchQuery = query;
     _applyFilters();
+    notifyListeners();
   }
 
-  void updateSeverityFilter(String severity) {
-    selectedSeverityFilter = severity;
+  void updateSeverityFilter(String filter) {
+    selectedSeverityFilter = filter;
     _applyFilters();
+    notifyListeners();
   }
 
   void toggleBookmark(String id) {
@@ -368,57 +237,114 @@ class ClauseIntelligenceController extends ChangeNotifier {
   void toggleSimpleExplanation(String id) {
     if (simpleExplanationIds.contains(id)) {
       simpleExplanationIds.remove(id);
-      isTypingExplanation = false;
-      typedExplanation = '';
-      _typingTimer?.cancel();
       notifyListeners();
     } else {
       simpleExplanationIds.add(id);
-      _triggerTypingExplanation(id);
+      final item = allClauses.firstWhere((c) => c.id == id);
+      final text = item.simpleExplanation;
+      isTypingExplanation = true;
+      typedExplanation = '';
+      notifyListeners();
+
+      int charIndex = 0;
+      Timer.periodic(const Duration(milliseconds: 15), (timer) {
+        if (charIndex < text.length) {
+          typedExplanation += text[charIndex];
+          charIndex++;
+          notifyListeners();
+        } else {
+          isTypingExplanation = false;
+          timer.cancel();
+          notifyListeners();
+        }
+      });
     }
   }
 
-  void _triggerTypingExplanation(String id) {
-    _typingTimer?.cancel();
-    isTypingExplanation = true;
-    typedExplanation = '';
-    notifyListeners();
-
-    final item = allClauses.firstWhere((c) => c.id == id);
-    final text = item.simpleExplanation;
-    int index = 0;
-
-    _typingTimer = Timer.periodic(const Duration(milliseconds: 15), (timer) {
-      if (index < text.length) {
-        // Increment by a few characters to make it look smooth and intelligent
-        final step = min(3, text.length - index);
-        typedExplanation += text.substring(index, index + step);
-        index += step;
-        notifyListeners();
-      } else {
-        isTypingExplanation = false;
-        timer.cancel();
-        notifyListeners();
+  void _applyFilters() {
+    final query = searchQuery.toLowerCase();
+    filteredClauses = allClauses.where((item) {
+      final matchesSearch = item.title.toLowerCase().contains(query) ||
+          item.originalText.toLowerCase().contains(query) ||
+          item.section.toLowerCase().contains(query);
+          
+      if (selectedSeverityFilter == 'All') {
+        return matchesSearch;
       }
-    });
+      return matchesSearch && item.severity.toLowerCase() == selectedSeverityFilter.toLowerCase();
+    }).toList();
+    
+    if (filteredClauses.isNotEmpty) {
+      if (selectedClauseId == null || !filteredClauses.any((c) => c.id == selectedClauseId)) {
+        selectedClauseId = filteredClauses.first.id;
+      }
+    } else {
+      selectedClauseId = null;
+    }
   }
 
-  @override
-  void dispose() {
-    _typingTimer?.cancel();
-    super.dispose();
+  static LoanAnalysisReport _generateFallbackReport(String loanId) {
+    return LoanAnalysisReport(
+      loanId: loanId,
+      lenderName: 'Apex Finance Corp',
+      productName: 'Secure Home Prime',
+      healthScore: 7.8,
+      healthSummary: 'Moderate health. Previewing local fallback clauses.',
+      detailedSummary: 'Detailed analysis is not available offline.',
+      simpleSummary: 'Offline mode: Previewing fallback template.',
+      recommendedAction: 'Verify connection',
+      contractClarity: '90% Transparent',
+      metrics: const [],
+      alerts: const [
+        RiskAlertData(
+          id: "prepay-waive",
+          title: "Pre-payment Waiver Active",
+          body: "Pre-payment penalties are completely waived after month 12. You have freedom to refinance early.",
+          severity: "Verified",
+          accent: Color(0xFFC3C6D7),
+          page: "Page 4",
+          clause: "Clause 6.2",
+          explanation: "Allows risk-free refinancing if market rates drop, saving exit penalty charges.",
+        ),
+        RiskAlertData(
+          id: "penalty-mid",
+          title: "Standard Exit Penalty",
+          body: "A 2.0% pre-payment penalty applies if closed before month 24. Standard but restrictive.",
+          severity: "Medium",
+          accent: Color(0xFFDBC3A8),
+          page: "Page 11",
+          clause: "Clause 8.4",
+          explanation: "This clause creates exit costs if you choose to refinance or pre-pay the loan early.",
+        ),
+        RiskAlertData(
+          id: "reset-high",
+          title: "Aggressive Variable Rate Reset",
+          body: "Year 3 variable interest reset permits rate escalation with an elevated 320 bps margin.",
+          severity: "High",
+          accent: Color(0xFFFFB4AB),
+          page: "Page 19",
+          clause: "Clause 11.2",
+          explanation: "Exposes the borrower to large installment hikes without proper shielding caps.",
+        ),
+      ],
+      sources: const [],
+      costSlices: const [],
+      emiSeries: const [],
+      clauseChips: const [],
+      extractions: const [],
+    );
   }
 }
 
-// ─── Main Clause Intelligence Console Screen ───
 class ClauseIntelligenceScreen extends StatefulWidget {
-  final LoanAnalysisReport report;
-  final String?
-      targetClauseId; // Can jump to a specific clause (e.g. from report)
+  final LoanAnalysisReport? report;
+  final String? loanId;
+  final String? targetClauseId;
 
   const ClauseIntelligenceScreen({
     super.key,
-    required this.report,
+    this.report,
+    this.loanId,
     this.targetClauseId,
   });
 
@@ -438,7 +364,14 @@ class _ClauseIntelligenceScreenState extends State<ClauseIntelligenceScreen>
   @override
   void initState() {
     super.initState();
-    _controller = ClauseIntelligenceController(report: widget.report);
+    _controller = ClauseIntelligenceController(
+      report: widget.report,
+      loanId: widget.loanId ?? widget.report?.loanId ?? '',
+    );
+
+    if (widget.report == null) {
+      _controller.load();
+    }
 
     if (widget.targetClauseId != null) {
       _controller.selectClause(widget.targetClauseId!);
@@ -469,17 +402,17 @@ class _ClauseIntelligenceScreenState extends State<ClauseIntelligenceScreen>
 
   @override
   Widget build(BuildContext context) {
+    final activeClause = (_controller.selectedClauseId != null && _controller.allClauses.isNotEmpty)
+        ? _controller.allClauses
+            .firstWhere((c) => c.id == _controller.selectedClauseId, orElse: () => _controller.allClauses.first)
+        : null;
+    final glowColor = activeClause != null
+        ? _ConsoleColors.severityColor(activeClause.severity)
+        : _ConsoleColors.primary;
+
     return AnimatedBuilder(
       animation: Listenable.merge([_controller, _ambientGlowController]),
       builder: (context, _) {
-        final activeClause = _controller.selectedClauseId != null
-            ? _controller.allClauses
-                .firstWhere((c) => c.id == _controller.selectedClauseId)
-            : null;
-        final glowColor = activeClause != null
-            ? _ConsoleColors.severityColor(activeClause.severity)
-            : _ConsoleColors.primary;
-
         return Scaffold(
           backgroundColor: _ConsoleColors.background,
           body: Stack(
@@ -1836,13 +1769,7 @@ class _ClauseIntelligenceScreenState extends State<ClauseIntelligenceScreen>
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                          builder: (_) => const HomeDashboardScreen()),
-                      (route) => false,
-                    );
-                  },
+                  onTap: () => AppNavigator.goHome(context),
                   child: const _NavBarItem(
                       icon: Icons.home_outlined, label: 'Home'),
                 ),
@@ -1859,11 +1786,13 @@ class _ClauseIntelligenceScreenState extends State<ClauseIntelligenceScreen>
                 ),
                 GestureDetector(
                   onTap: () {
+                    final loanId = widget.report?.loanId ?? widget.loanId ?? '';
+                    if (loanId.isEmpty) return; // guard: no valid loan context
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => ChatScreen(
-                          loanId: widget.report.loanId,
+                          loanId: loanId,
                         ),
                       ),
                     );
@@ -1873,15 +1802,15 @@ class _ClauseIntelligenceScreenState extends State<ClauseIntelligenceScreen>
                 ),
                 GestureDetector(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoanComparisonScreen()),
-                    );
+                    AppNavigator.goToCompare(context);
                   },
                   child: const _NavBarItem(
                       icon: Icons.compare_arrows_outlined, label: 'Compare'),
                 ),
-                const _NavBarItem(icon: Icons.person_outline, label: 'Profile'),
+                GestureDetector(
+                  onTap: () => AppNavigator.goToProfile(context),
+                  child: const _NavBarItem(icon: Icons.person_outline, label: 'Profile'),
+                ),
               ],
             ),
           ),

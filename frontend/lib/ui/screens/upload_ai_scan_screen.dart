@@ -6,6 +6,7 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:loansense_ai/ui/screens/analysis_report_screen.dart';
 import 'package:loansense_ai/presentation/providers/loan_providers.dart';
+import 'package:loansense_ai/presentation/providers/active_loan_provider.dart';
 import 'package:loansense_ai/core/error/exceptions.dart';
 
 // ─── Color Palette (from reference design tokens) ───
@@ -190,6 +191,9 @@ class _UploadAiScanScreenState extends ConsumerState<UploadAiScanScreen>
 
       if (mounted && !_isNavigating) {
         _isNavigating = true;
+        // Publish the freshly analysed report so the entire app knows a valid
+        // loan is now active (prevents hardcoded fallback IDs being used).
+        ref.read(activeLoanProvider.notifier).state = report;
         await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
           Navigator.pushReplacement(

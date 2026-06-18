@@ -1,7 +1,7 @@
 import unittest
 from fastapi.testclient import TestClient
 from decimal import Decimal
-from datetime import date
+from datetime import date, datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 from app.main import app
@@ -12,6 +12,7 @@ from app.models.loan_score import LoanSafetyScore, SafetyRating
 from app.models.risk_clause import RiskClause, RiskLevel, RiskCategory
 from app.models.api_schemas import (
     AnalysisResponse,
+    LoanHistoryItemResponse,
     RisksResponse,
     CompareResponse,
     ChatResponse,
@@ -124,6 +125,43 @@ class TestLoanSenseAPI(unittest.TestCase):
         response = self.client.get(f"/analysis/{loan_uuid_str}")
         self.assertEqual(response.status_code, 404)
         self.assertIn("not found", response.json()["detail"].lower())
+
+    def test_loans_endpoint_returns_history(self):
+        """Test GET /loans returns reverse-chronological loan history."""
+        first_report = LoanReport(
+            loan_id=uuid.UUID("8a7b3c2d-1a2b-3c4d-5e6f-7a8b9c0d1e2f"),
+            status=ProcessingStatus.COMPLETED,
+            lender_name="Mock Bank",
+            created_at=datetime(2026, 6, 7, 13, 25, 14, tzinfo=timezone.utc),
+            analysis_json={
+                "loan_score": {
+                    "score": 8.0,
+                }
+            },
+        )
+        second_report = LoanReport(
+            loan_id=uuid.UUID("9f8e7d6c-5b4a-3c2d-1e0f-9a8b7c6d5e4f"),
+            status=ProcessingStatus.PENDING,
+            document_name="sample-loan.pdf",
+            created_at=datetime(2026, 6, 6, 8, 10, 0, tzinfo=timezone.utc),
+            analysis_json=None,
+        )
+        self.mock_db.query.return_value.order_by.return_value.all.return_value = [
+            first_report,
+            second_report,
+        ]
+
+        response = self.client.get("/loans")
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertEqual(len(data), 2)
+        self.assertEqual(data[0]["loan_id"], "8a7b3c2d-1a2b-3c4d-5e6f-7a8b9c0d1e2f")
+        self.assertEqual(data[0]["lender_name"], "Mock Bank")
+        self.assertEqual(data[0]["status"], "COMPLETED")
+        self.assertEqual(data[0]["risk_score"], 20.0)
+        self.assertEqual(data[1]["lender_name"], "sample-loan.pdf")
+        self.assertIsNone(data[1]["risk_score"])
 
     def test_risks_endpoint_success(self):
         """Test GET /risks/{loan_id} calculates risk metrics correctly."""

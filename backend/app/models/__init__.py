@@ -12,6 +12,16 @@ from .api_schemas import (
     ChatRequest,
     ChatResponse,
 )
+from .user_profile_schemas import (
+    NotificationSettingsSchema,
+    PrivacySettingsSchema,
+    UserProfileResponse,
+    UpdateUserProfileRequest,
+    UserSettingsResponse,
+    UpdateUserSettingsRequest,
+    LogoutResponse,
+    DeleteDocumentsResponse,
+)
 
 __all__ = [
     "LoanMetadata",
@@ -32,4 +42,13 @@ __all__ = [
     "CompareResponse",
     "ChatRequest",
     "ChatResponse",
+    # User profile & settings
+    "NotificationSettingsSchema",
+    "PrivacySettingsSchema",
+    "UserProfileResponse",
+    "UpdateUserProfileRequest",
+    "UserSettingsResponse",
+    "UpdateUserSettingsRequest",
+    "LogoutResponse",
+    "DeleteDocumentsResponse",
 ]

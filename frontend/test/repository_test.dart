@@ -8,6 +8,7 @@ import 'package:loansense_ai/data/repositories/http_loan_assistant_repository.da
 import 'package:loansense_ai/data/models/loan_assistant_models.dart';
 import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 import 'package:loansense_ai/data/models/loan_comparison_report.dart';
+import 'package:loansense_ai/data/models/loan_history_item.dart';
 
 // --- Mocks ---
 class MockApiClient extends Mock implements ApiClient {}
@@ -124,6 +125,47 @@ void main() {
     });
   });
 
+  group('LoanRepository - fetchLoanHistory', () {
+    final mockHistoryJson = [
+      {
+        'loan_id': 'loan-1',
+        'lender_name': 'Apex Finance Corp',
+        'upload_date': '2026-06-07T13:25:14Z',
+        'status': 'COMPLETED',
+        'risk_score': 22.0,
+      },
+      {
+        'loan_id': 'loan-2',
+        'lender_name': 'Pending lender detection',
+        'upload_date': '2026-06-06T08:10:00Z',
+        'status': 'PENDING',
+        'risk_score': null,
+      },
+    ];
+
+    test('should return parsed loan history items when endpoint succeeds',
+        () async {
+      when(() => mockApiClient.get<List<dynamic>>('/loans')).thenAnswer(
+        (_) async => Response(
+          requestOptions: RequestOptions(path: '/loans'),
+          data: mockHistoryJson,
+          statusCode: 200,
+        ),
+      );
+
+      final result = await loanRepository.fetchLoanHistory();
+
+      expect(result, hasLength(2));
+      expect(result.first, isA<LoanHistoryItem>());
+      expect(result.first.loanId, 'loan-1');
+      expect(result.first.lenderName, 'Apex Finance Corp');
+      expect(result.first.riskScore, 22.0);
+      expect(result.last.status, 'PENDING');
+      expect(result.last.riskScore, isNull);
+      verify(() => mockApiClient.get<List<dynamic>>('/loans')).called(1);
+    });
+  });
+
   group('LoanRepository - compareLoans', () {
     const loanIdA = 'loan-a-123';
     const loanIdB = 'loan-b-456';
@@ -218,10 +260,23 @@ void main() {
         'should map and wrap backend chat response into assistant domain entities',
         () async {
       // Arrange
-      final mockReport = LoanAnalysisReport.generateMockReport(
-        fileName: 'test.pdf',
-        fileSizeMb: 1.5,
+      const mockReport = LoanAnalysisReport(
         loanId: loanId,
+        lenderName: 'Test Lender',
+        productName: 'Test Product',
+        healthScore: 8.5,
+        healthSummary: 'Good health',
+        detailedSummary: 'Detailed summary',
+        simpleSummary: 'Simple summary',
+        recommendedAction: 'Proceed',
+        contractClarity: 'High',
+        metrics: [],
+        alerts: [],
+        sources: [],
+        costSlices: [],
+        emiSeries: [],
+        clauseChips: [],
+        extractions: [],
       );
 
       final mockHistory = [

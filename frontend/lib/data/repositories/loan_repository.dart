@@ -5,13 +5,15 @@ import 'package:loansense_ai/core/network/api_client.dart';
 import 'package:loansense_ai/core/error/exceptions.dart';
 import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 import 'package:loansense_ai/data/models/loan_comparison_report.dart';
+import 'package:loansense_ai/data/models/loan_history_item.dart';
 import 'package:loansense_ai/data/dto/analysis_dto.dart';
 import 'package:loansense_ai/data/dto/compare_dto.dart';
 
 class LoanRepository {
   final ApiClient _apiClient;
 
-  LoanRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+  LoanRepository({ApiClient? apiClient})
+      : _apiClient = apiClient ?? ApiClient();
 
   Future<Map<String, dynamic>> uploadLoan(File file) async {
     try {
@@ -24,9 +26,10 @@ class LoanRepository {
         "/upload",
         data: formData,
       );
-      
+
       if (response.data == null) {
-        throw const ApiException(message: 'Upload response returned empty data.');
+        throw const ApiException(
+            message: 'Upload response returned empty data.');
       }
       return response.data!;
     } catch (e) {
@@ -37,20 +40,52 @@ class LoanRepository {
     }
   }
 
+  Future<List<LoanHistoryItem>> fetchLoanHistory() async {
+    try {
+      final response = await _apiClient.get<List<dynamic>>("/loans");
+      final rawList = response.data;
+      if (rawList == null) {
+        throw const ApiException(
+            message: 'Loan history response returned empty data.');
+      }
+
+      try {
+        return rawList
+            .map((item) => LoanHistoryItem.fromJson(
+                Map<String, dynamic>.from(item as Map)))
+            .toList(growable: false);
+      } catch (e) {
+        throw ParsingException('Failed to parse loan history response: $e',
+            originalError: e);
+      }
+    } catch (e) {
+      if (e is ApiException || e is NetworkException || e is ParsingException) {
+        rethrow;
+      }
+      throw ApiException(
+          message: "Failed to fetch loan history: ${e.toString()}");
+    }
+  }
+
   /// Returns the raw DTO. `report` will be null while backend is still processing.
   Future<AnalysisResponseDto> fetchRawAnalysis(String loanId) async {
     try {
-      final response = await _apiClient.get<Map<String, dynamic>>("/analysis/$loanId");
+      final response =
+          await _apiClient.get<Map<String, dynamic>>("/analysis/$loanId");
       if (response.data == null) {
-        throw const ApiException(message: 'Analysis response returned empty data.');
+        throw const ApiException(
+            message: 'Analysis response returned empty data.');
       }
       try {
         return AnalysisResponseDto.fromJson(response.data!);
       } catch (e) {
-        throw ParsingException('Failed to parse analysis response: $e', originalError: e);
+        throw ParsingException('Failed to parse analysis response: $e',
+            originalError: e);
       }
     } catch (e) {
-      if (e is ApiException || e is NetworkException || e is ParsingException) rethrow;
+      if (e is ApiException || e is NetworkException || e is ParsingException) {
+        rethrow;
+      }
       throw ApiException(message: "Failed to fetch analysis: ${e.toString()}");
     }
   }
@@ -61,7 +96,8 @@ class LoanRepository {
   Future<LoanAnalysisReport> fetchAnalysis(
     String loanId, {
     int intervalSeconds = 5,
-    int maxAttempts = 90, // 90 × 5s = 7.5 minutes max (AI pipeline can take time)
+    int maxAttempts =
+        90, // 90 × 5s = 7.5 minutes max (AI pipeline can take time)
   }) async {
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       final dto = await fetchRawAnalysis(loanId);
@@ -72,18 +108,21 @@ class LoanRepository {
       if (statusUpper == 'COMPLETED') {
         if (dto.analysis == null) {
           throw const ApiException(
-              message: 'Server marked analysis completed but returned no data.');
+              message:
+                  'Server marked analysis completed but returned no data.');
         }
         try {
           return dto.toDomain();
         } catch (e) {
-          throw ParsingException('Failed to parse analysis report: $e', originalError: e);
+          throw ParsingException('Failed to parse analysis report: $e',
+              originalError: e);
         }
       }
 
       if (statusUpper == 'FAILED') {
         throw const ApiException(
-            message: 'The AI analysis pipeline failed on the server. Please retry.');
+            message:
+                'The AI analysis pipeline failed on the server. Please retry.');
       }
 
       // Still PENDING / PROCESSING — wait before next poll
@@ -91,9 +130,9 @@ class LoanRepository {
     }
 
     throw const ApiException(
-        message: 'Analysis timed out. The server is taking too long. Please retry later.');
+        message:
+            'Analysis timed out. The server is taking too long. Please retry later.');
   }
-
 
   Future<LoanComparisonReport> compareLoans(String idA, String idB) async {
     try {
@@ -106,14 +145,16 @@ class LoanRepository {
       );
 
       if (response.data == null) {
-        throw const ApiException(message: 'Comparison response returned empty data.');
+        throw const ApiException(
+            message: 'Comparison response returned empty data.');
       }
 
       try {
         final dto = CompareResponseDto.fromJson(response.data!);
         return dto.toDomain(idA, idB);
       } catch (e) {
-        throw ParsingException('Failed to parse comparison report: $e', originalError: e);
+        throw ParsingException('Failed to parse comparison report: $e',
+            originalError: e);
       }
     } catch (e) {
       if (e is ApiException || e is NetworkException || e is ParsingException) {
