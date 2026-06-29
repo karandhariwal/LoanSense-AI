@@ -74,4 +74,103 @@ class HttpLoanAssistantRepository implements LoanAssistantRepository {
     final dto = ChatResponseDto.fromJson(responseMap);
     return dto.toDomain(query);
   }
+
+  @override
+  Future<List<LoanAssistantMessage>> fetchHistory(String loanId) async {
+    final rawHistory = await _loanRepository.fetchChatHistory(loanId);
+    
+    final List<LoanAssistantMessage> messages = [];
+    int userMessageIndex = 1;
+    int assistantMessageIndex = 1;
+
+    for (final rawMsg in rawHistory) {
+      final roleStr = rawMsg['role']?.toString() ?? 'user';
+      final content = rawMsg['content']?.toString() ?? '';
+      final timestampStr = rawMsg['created_at']?.toString();
+      final timestamp = timestampStr != null 
+          ? DateTime.tryParse(timestampStr) ?? DateTime.now()
+          : DateTime.now();
+
+      if (roleStr == 'user') {
+        messages.add(
+          LoanAssistantMessage(
+            id: 'history-user-$loanId-${userMessageIndex++}-${timestamp.millisecondsSinceEpoch}',
+            role: LoanAssistantRole.user,
+            content: content,
+            timestamp: timestamp,
+            state: LoanAssistantMessageState.complete,
+            isFresh: false,
+          ),
+        );
+      } else {
+        final citationsRaw = rawMsg['citations'] as List? ?? [];
+        final confidence = (rawMsg['confidence_score'] as num?)?.toDouble() ?? 0.85;
+
+        final dto = ChatResponseDto(
+          answer: content,
+          citations: citationsRaw
+              .map((c) => CitationDto.fromJson(Map<String, dynamic>.from(c as Map)))
+              .toList(),
+          confidenceScore: confidence,
+          sessionId: 'history-$loanId',
+        );
+
+        final domainReply = dto.toDomain("What is this clause?");
+        
+        messages.add(
+          domainReply.assistantMessage.copyWith(
+            id: 'history-assistant-$loanId-${assistantMessageIndex++}-${timestamp.millisecondsSinceEpoch}',
+            timestamp: timestamp,
+            isFresh: false,
+          ),
+        );
+      }
+    }
+
+    return messages;
+  }
+
+  @override
+  Stream<LoanAssistantStreamEvent> replyStream({
+    required LoanAssistantConversationContext context,
+    required String query,
+  }) async* {
+    final historyMaps = context.history.map((m) {
+      return {
+        "role": m.role == LoanAssistantRole.user ? "user" : "assistant",
+        "content": m.content,
+      };
+    }).toList();
+
+    final stream = _loanRepository.chatWithLoanStream(
+      context.report.loanId,
+      query,
+      history: historyMaps,
+    );
+
+    String accumulatedAnswer = '';
+    await for (final event in stream) {
+      final type = event['type'] as String?;
+      if (type == 'token') {
+        final content = event['content']?.toString() ?? '';
+        accumulatedAnswer += content;
+        yield LoanAssistantTokenEvent(content);
+      } else if (type == 'final') {
+        final citationsRaw = event['citations'] as List? ?? [];
+        final confidence = (event['confidence_score'] as num?)?.toDouble() ?? 0.85;
+
+        final dto = ChatResponseDto(
+          answer: accumulatedAnswer,
+          citations: citationsRaw
+              .map((c) => CitationDto.fromJson(Map<String, dynamic>.from(c as Map)))
+              .toList(),
+          confidenceScore: confidence,
+          sessionId: 'stream-${context.report.loanId}',
+        );
+
+        final domainReply = dto.toDomain(query);
+        yield LoanAssistantFinalEvent(domainReply);
+      }
+    }
+  }
 }

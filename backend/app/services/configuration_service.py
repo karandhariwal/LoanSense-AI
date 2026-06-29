@@ -94,7 +94,7 @@ class ConfigurationService:
         self._safety_thresholds = SafetyScoreThresholds()
         self._risk_weights = RiskPenaltyWeights()
         self._processing_constants = ProcessingConstants()
-        print("✅ Configuration Service initialized with environment variables")
+        print("Configuration Service initialized with environment variables")
     
     @property
     def safety_thresholds(self) -> SafetyScoreThresholds:

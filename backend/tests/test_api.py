@@ -22,7 +22,7 @@ from app.models.chat_citation import ChatCitation, CitationType
 
 import uuid
 from app.database.session import get_db
-from app.database.models import LoanReport
+from app.database.models import LoanReport, ChatMessage
 from app.database.enums import ProcessingStatus
 
 class TestLoanSenseAPI(unittest.TestCase):
@@ -146,10 +146,8 @@ class TestLoanSenseAPI(unittest.TestCase):
             created_at=datetime(2026, 6, 6, 8, 10, 0, tzinfo=timezone.utc),
             analysis_json=None,
         )
-        self.mock_db.query.return_value.order_by.return_value.all.return_value = [
-            first_report,
-            second_report,
-        ]
+        mock_query = self.mock_db.query.return_value
+        mock_query.all.return_value = [first_report, second_report]
 
         response = self.client.get("/loans")
         self.assertEqual(response.status_code, 200)
@@ -162,6 +160,69 @@ class TestLoanSenseAPI(unittest.TestCase):
         self.assertEqual(data[0]["risk_score"], 20.0)
         self.assertEqual(data[1]["lender_name"], "sample-loan.pdf")
         self.assertIsNone(data[1]["risk_score"])
+
+    def test_loans_endpoint_filtering_and_sorting(self):
+        """Test GET /loans with filters (search, risk_level, dates) and sorting."""
+        report_safe = LoanReport(
+            loan_id=uuid.UUID("11111111-1111-1111-1111-111111111111"),
+            status=ProcessingStatus.COMPLETED,
+            lender_name="Apex Bank",
+            document_name="apex-loan.pdf",
+            created_at=datetime(2026, 6, 7, 10, 0, 0, tzinfo=timezone.utc),
+            analysis_json={"loan_score": {"score": 8.0}},  # risk = 20.0 (Safe)
+        )
+        report_moderate = LoanReport(
+            loan_id=uuid.UUID("22222222-2222-2222-2222-222222222222"),
+            status=ProcessingStatus.COMPLETED,
+            lender_name="Summit Finance",
+            document_name="summit-loan.pdf",
+            created_at=datetime(2026, 6, 6, 10, 0, 0, tzinfo=timezone.utc),
+            analysis_json={"loan_score": {"score": 5.0}},  # risk = 50.0 (Moderate)
+        )
+        report_dangerous = LoanReport(
+            loan_id=uuid.UUID("33333333-3333-3333-3333-333333333333"),
+            status=ProcessingStatus.COMPLETED,
+            lender_name="Predatory Lenders",
+            document_name="bad-loan.pdf",
+            created_at=datetime(2026, 6, 5, 10, 0, 0, tzinfo=timezone.utc),
+            analysis_json={"loan_score": {"score": 2.0}},  # risk = 80.0 (Dangerous)
+        )
+
+        # Mock database query chain for list_loans
+        mock_query = self.mock_db.query.return_value
+        mock_query.filter.return_value = mock_query  # Keep returning query mock for chain
+        mock_query.all.return_value = [report_safe, report_moderate, report_dangerous]
+
+        # 1. Test search filter
+        response = self.client.get("/loans?search=summit")
+        self.assertEqual(response.status_code, 200)
+        # Verify the database filter was called on the mock
+        self.assertTrue(mock_query.filter.called)
+
+        # 2. Test risk_level filtering (which happens on Python side)
+        response = self.client.get("/loans?risk_level=moderate")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["lender_name"], "Summit Finance")
+
+        # 3. Test sort_by risk_score asc
+        response = self.client.get("/loans?sort_by=risk_score&order=asc")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 3)
+        self.assertEqual(data[0]["risk_score"], 20.0)
+        self.assertEqual(data[1]["risk_score"], 50.0)
+        self.assertEqual(data[2]["risk_score"], 80.0)
+
+        # 4. Test sort_by lender_name desc
+        response = self.client.get("/loans?sort_by=lender_name&order=desc")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 3)
+        self.assertEqual(data[0]["lender_name"], "Summit Finance")  # Summit Finance, Predatory, Apex Bank
+        self.assertEqual(data[1]["lender_name"], "Predatory Lenders")
+        self.assertEqual(data[2]["lender_name"], "Apex Bank")
 
     def test_risks_endpoint_success(self):
         """Test GET /risks/{loan_id} calculates risk metrics correctly."""
@@ -244,7 +305,7 @@ class TestLoanSenseAPI(unittest.TestCase):
         mock_chat_service.get_answer = AsyncMock(return_value=mock_chat_resp)
         app.dependency_overrides[get_chat_service] = lambda: mock_chat_service
 
-        response = self.client.post("/chat/test-loan-id?query=prepayment")
+        response = self.client.post("/chat/8a7b3c2d-1a2b-3c4d-5e6f-7a8b9c0d1e2f?query=prepayment")
         self.assertEqual(response.status_code, 200)
         
         data = response.json()
@@ -281,7 +342,7 @@ class TestLoanSenseAPI(unittest.TestCase):
             "query": "prepayment",
             "history": [{"role": "user", "content": "Hi"}]
         }
-        response = self.client.post("/chat/test-loan-id", json=request_body)
+        response = self.client.post("/chat/8a7b3c2d-1a2b-3c4d-5e6f-7a8b9c0d1e2f", json=request_body)
         self.assertEqual(response.status_code, 200)
         
         data = response.json()
@@ -289,9 +350,121 @@ class TestLoanSenseAPI(unittest.TestCase):
 
     def test_chat_endpoint_missing_query(self):
         """Test POST /chat/{loan_id} with no query returns 400."""
-        response = self.client.post("/chat/test-loan-id")
+        response = self.client.post("/chat/8a7b3c2d-1a2b-3c4d-5e6f-7a8b9c0d1e2f")
         self.assertEqual(response.status_code, 400)
         self.assertIn("must be provided", response.json()["detail"].lower())
+
+    def test_chat_endpoint_invalid_uuid(self):
+        """Test POST /chat/{loan_id} with invalid UUID returns 400."""
+        response = self.client.post("/chat/invalid-uuid?query=prepayment")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("invalid uuid", response.json()["detail"].lower())
+
+    def test_get_chat_history_success(self):
+        """Test GET /chat/{loan_id}/history returns chat messages list."""
+        mock_messages = [
+            ChatMessage(
+                message_id=uuid.UUID("11111111-2222-3333-4444-555555555555"),
+                loan_id=uuid.UUID("8a7b3c2d-1a2b-3c4d-5e6f-7a8b9c0d1e2f"),
+                role="user",
+                content="Is there a prepayment fee?",
+                citations=[],
+                confidence_score=None,
+                created_at=datetime.now(timezone.utc)
+            ),
+            ChatMessage(
+                message_id=uuid.UUID("66666666-7777-8888-9999-000000000000"),
+                loan_id=uuid.UUID("8a7b3c2d-1a2b-3c4d-5e6f-7a8b9c0d1e2f"),
+                role="assistant",
+                content="Yes, 2%.",
+                citations=[
+                    {
+                        "page_number": 8,
+                        "source_text": "7.2 Prepayment: 2%",
+                        "confidence": 0.98,
+                        "citation_type": "legal_provision",
+                        "clause_reference": "Clause 7.2"
+                    }
+                ],
+                confidence_score=0.98,
+                created_at=datetime.now(timezone.utc)
+            )
+        ]
+        
+        mock_query = MagicMock()
+        mock_filter = MagicMock()
+        mock_order_by = MagicMock()
+        
+        self.mock_db.query.return_value = mock_query
+        mock_query.filter.return_value = mock_filter
+        mock_filter.order_by.return_value = mock_order_by
+        mock_order_by.all.return_value = mock_messages
+        
+        response = self.client.get("/chat/8a7b3c2d-1a2b-3c4d-5e6f-7a8b9c0d1e2f/history")
+        self.assertEqual(response.status_code, 200)
+        
+        data = response.json()
+        self.assertEqual(len(data), 2)
+        self.assertEqual(data[0]["role"], "user")
+        self.assertEqual(data[0]["content"], "Is there a prepayment fee?")
+        self.assertEqual(data[1]["role"], "assistant")
+        self.assertEqual(data[1]["content"], "Yes, 2%.")
+        self.assertEqual(data[1]["citations"][0]["page_number"], 8)
+        self.assertEqual(data[1]["confidence_score"], 0.98)
+
+    def test_get_chat_history_invalid_uuid(self):
+        """Test GET /chat/{loan_id}/history with invalid UUID returns 400."""
+        response = self.client.get("/chat/invalid-uuid/history")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("invalid uuid", response.json()["detail"].lower())
+
+    def test_chat_endpoint_stream_success(self):
+        """Test POST /chat/{loan_id}/stream returns a line-by-line SSE stream."""
+        import json
+        mock_chat_service = MagicMock()
+        
+        async def mock_stream_gen(loan_id, query, db, history=None, session_id=None):
+            yield {"type": "token", "content": "According to"}
+            yield {"type": "token", "content": " Clause 7.2"}
+            yield {"type": "final", "citations": [
+                {
+                    "page_number": 3,
+                    "source_text": "Clause 7.2 details prepayment.",
+                    "confidence": 0.98,
+                    "citation_type": "legal_provision",
+                    "clause_reference": "Clause 7.2"
+                }
+            ], "confidence_score": 0.98}
+            
+        mock_chat_service.get_answer_stream = mock_stream_gen
+        app.dependency_overrides[get_chat_service] = lambda: mock_chat_service
+
+        response = self.client.post("/chat/8a7b3c2d-1a2b-3c4d-5e6f-7a8b9c0d1e2f/stream?query=prepayment")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "text/event-stream; charset=utf-8")
+        
+        lines = [line if isinstance(line, str) else line.decode("utf-8") for line in response.iter_lines()]
+        events = [line for line in lines if line.startswith("data: ")]
+        self.assertEqual(len(events), 3)
+        
+        event0 = json.loads(events[0][6:])
+        self.assertEqual(event0["type"], "token")
+        self.assertEqual(event0["content"], "According to")
+        
+        event1 = json.loads(events[1][6:])
+        self.assertEqual(event1["type"], "token")
+        self.assertEqual(event1["content"], " Clause 7.2")
+        
+        event2 = json.loads(events[2][6:])
+        self.assertEqual(event2["type"], "final")
+        self.assertEqual(event2["confidence_score"], 0.98)
+        self.assertEqual(event2["citations"][0]["page_number"], 3)
+
+    def test_chat_endpoint_stream_invalid_uuid(self):
+        """Test POST /chat/{loan_id}/stream with invalid UUID returns 400."""
+        response = self.client.post("/chat/invalid-uuid/stream?query=prepayment")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("invalid uuid", response.json()["detail"].lower())
 
 if __name__ == "__main__":
     unittest.main()

@@ -36,7 +36,7 @@ void main() {
 
     final mockAnalysisJson = {
       'loan_id': loanId,
-      'status': 'success',
+      'status': 'completed',
       'analysis': {
         'metadata': {
           'lender_name': 'Apex Finance Corp',
@@ -145,7 +145,10 @@ void main() {
 
     test('should return parsed loan history items when endpoint succeeds',
         () async {
-      when(() => mockApiClient.get<List<dynamic>>('/loans')).thenAnswer(
+      when(() => mockApiClient.get<List<dynamic>>(
+            '/loans',
+            queryParameters: any(named: 'queryParameters'),
+          )).thenAnswer(
         (_) async => Response(
           requestOptions: RequestOptions(path: '/loans'),
           data: mockHistoryJson,
@@ -162,7 +165,10 @@ void main() {
       expect(result.first.riskScore, 22.0);
       expect(result.last.status, 'PENDING');
       expect(result.last.riskScore, isNull);
-      verify(() => mockApiClient.get<List<dynamic>>('/loans')).called(1);
+      verify(() => mockApiClient.get<List<dynamic>>(
+            '/loans',
+            queryParameters: any(named: 'queryParameters'),
+          )).called(1);
     });
   });
 

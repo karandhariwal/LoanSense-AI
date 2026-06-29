@@ -1,14 +1,14 @@
 # 🎯 LoanSense AI - Implementation Status Report
 
-**Last Updated:** June 12, 2026
+**Last Updated:** June 26, 2026
 
 ---
 
 ## 📊 Overall Progress
 
-- **Backend:** 7/10 features complete (70%)
-- **Frontend:** 8/10 features complete (80%)
-- **Critical Blockers:** 1 (Authentication)
+- **Backend:** 9/10 features complete (90%) — Phase 2 complete
+- **Frontend:** 10/10 features complete (100%) — Phase 2 complete
+- **Critical Blockers:** 0 (Authentication intentionally skipped)
 
 ---
 
@@ -19,13 +19,17 @@
 |----------|--------|--------|---------|
 | `/upload` | POST | ✅ | Accept PDF loan documents |
 | `/analysis/{loan_id}` | GET | ✅ | Retrieve loan analysis results |
-| `/loans` | GET | ✅ | List loan upload history |
+| `/loans` | GET | ✅ | List loan upload history with search/filter/sort |
 | `/risks/{loan_id}` | GET | ✅ | Get risk clause analysis |
 | `/compare` | POST | ✅ | Compare two loans side-by-side |
 | `/chat/{loan_id}` | POST | ✅ | RAG-based Q&A about loans |
+| `/chat/{loan_id}/history` | GET | ✅ | Fetch persisted chat history |
+| `/chat/{loan_id}/stream` | POST | ✅ | Streaming SSE chat responses |
 | `/user/profile` | GET/PATCH | ✅ | User profile management |
 | `/user/settings` | GET/PATCH | ✅ | User settings management |
 | `/user/documents/{document_id}` | DELETE | ✅ | Delete loan documents |
+| `/user/documents/bulk-delete` | POST | ✅ | Bulk delete loan documents |
+| `/export/{loan_id}` | GET | ✅ | **NEW** Export loan analysis as PDF |
 
 ### AI Services (All Implemented)
 - ✅ **PDF Processor** - Extract text from PDFs using PyPDF2
@@ -237,11 +241,11 @@ def _current_user_id() -> str:
 **Goal:** Optimize RAG pipeline and core app functionality
 
 1. ✅ RAG Pipeline Improvements
-   - [ ] Optimize ChromaDB vector search
-   - [ ] Improve document chunking strategy
+   - [x] Optimize ChromaDB vector search
+   - [x] Improve document chunking strategy
    - [ ] Add semantic search capabilities
    - [ ] Test with various loan document types
-   - [ ] Improve answer relevance & accuracy
+   - [x] Improve answer relevance & accuracy
 
 2. ✅ Chat Functionality
    - [ ] Fix chat streaming for real-time responses
@@ -441,8 +445,8 @@ Updated Summary (Self-Project, No Auth)
 **Time Estimate:** 2-3 weeks to fully functional demo  
 
 **Updated Priority Checklist:**
-- [ ] Optimize RAG pipeline & chunking strategy
-- [ ] Improve chat Q&A accuracy
+- [x] Optimize RAG pipeline & chunking strategy
+- [x] Improve chat Q&A accuracy
 - [ ] Add search & filter to dashboard
 - [ ] Add export functionality (PDF/images)
 - [ ] Persist chat history per loan

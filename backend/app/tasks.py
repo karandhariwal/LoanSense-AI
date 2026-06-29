@@ -13,8 +13,23 @@ from app.database.models import LoanReport
 from app.database.enums import ProcessingStatus
 from app.services.ai.pdf_processor import pdf_processor
 from app.services.ai.extraction_service import LoanExtractionService
+from app.services.cache_service import cache
 
 logger = get_task_logger(__name__)
+
+# ─── Module-level singletons ──────────────────────────────────────────────────
+# LoanExtractionService initializes the NVIDIA NIM client and builds the
+# LangChain pipeline chains. Doing this once per worker process (rather than
+# once per task) saves 2–3 seconds of cold-start overhead per document.
+_extraction_service: "LoanExtractionService | None" = None
+
+def _get_extraction_service() -> "LoanExtractionService":
+    global _extraction_service
+    if _extraction_service is None:
+        logger.info("Initializing LoanExtractionService singleton for this worker process.")
+        _extraction_service = LoanExtractionService()
+    return _extraction_service
+
 
 def calculate_file_hash(file_path: str) -> str:
     """Calculate the SHA-256 hash of a file."""
@@ -77,7 +92,7 @@ def process_loan_document_task(self, loan_id: str, file_path: str):
 
         # 4. Run AI Extraction & Audit Pipeline (async)
         logger.info(f"Running LoanExtractionService pipeline for loan_id={loan_id}")
-        extraction_service = LoanExtractionService()
+        extraction_service = _get_extraction_service()
         
         # Executing async pipeline in a synchronous worker thread
         analysis_response = asyncio.run(extraction_service.analyze_document(text))
@@ -99,6 +114,16 @@ def process_loan_document_task(self, loan_id: str, file_path: str):
         
         db.commit()
         logger.info(f"Database saved. LoanReport status updated to COMPLETED for loan_id={loan_id}")
+
+        # ── Cache integration ──────────────────────────────────────────────────
+        # 1. Invalidate any stale chat/doc caches for this loan (e.g. re-upload).
+        # 2. Seed the analysis cache so the first chat hit is instant.
+        async def _update_cache():
+            await cache.delete_loan(loan_id)
+            await cache.set_analysis(loan_id, report.analysis_json)
+        asyncio.run(_update_cache())
+        # ──────────────────────────────────────────────────────────────────
+
         return f"Success: loan_id={loan_id} processed"
 
     except Exception as exc:

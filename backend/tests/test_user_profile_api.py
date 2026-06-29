@@ -389,6 +389,44 @@ class TestUserProfileAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 500)
 
     # ------------------------------------------------------------------
+    # POST /user/documents/bulk-delete
+    # ------------------------------------------------------------------
+
+    def test_bulk_delete_documents_success(self):
+        """POST /user/documents/bulk-delete successfully deletes specific documents."""
+        # delete_document_by_id returns True (found & deleted)
+        self.mock_service.delete_document_by_id.return_value = True
+        doc_ids = ["11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222"]
+
+        response = self.client.post("/user/documents/bulk-delete", json={"document_ids": doc_ids})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["deletedCount"], 2)
+        self.assertIn("2", data["message"])
+
+        # Verify service was called for each ID
+        self.assertEqual(self.mock_service.delete_document_by_id.call_count, 2)
+
+    def test_bulk_delete_documents_partial_not_found(self):
+        """POST /user/documents/bulk-delete counts only successfully deleted documents."""
+        # delete_document_by_id returns True for first doc, False for second doc
+        self.mock_service.delete_document_by_id.side_effect = [True, False]
+        doc_ids = ["11111111-1111-1111-1111-111111111111", "99999999-9999-9999-9999-999999999999"]
+
+        response = self.client.post("/user/documents/bulk-delete", json={"document_ids": doc_ids})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["deletedCount"], 1)
+
+    def test_bulk_delete_documents_server_error(self):
+        """POST /user/documents/bulk-delete returns 500 if deletion throws exception."""
+        self.mock_service.delete_document_by_id.side_effect = RuntimeError("disk crash")
+        doc_ids = ["11111111-1111-1111-1111-111111111111"]
+
+        response = self.client.post("/user/documents/bulk-delete", json={"document_ids": doc_ids})
+        self.assertEqual(response.status_code, 500)
+
+    # ------------------------------------------------------------------
     # POST /auth/logout
     # ------------------------------------------------------------------
 

@@ -5,13 +5,16 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:open_file/open_file.dart';
 import 'package:loansense_ai/core/navigation/app_routes.dart';
 import 'package:loansense_ai/data/models/loan_analysis_report.dart';
 import 'package:loansense_ai/data/repositories/loan_repository.dart';
+import 'package:loansense_ai/presentation/providers/loan_providers.dart';
 import 'package:loansense_ai/ui/screens/chat_screen.dart';
 import 'package:loansense_ai/ui/screens/loan_assistant_screen.dart';
-class LoanAnalysisReportScreen extends StatefulWidget {
+class LoanAnalysisReportScreen extends ConsumerStatefulWidget {
   final LoanAnalysisReport? report;
   final String? loanId;
 
@@ -24,15 +27,16 @@ class LoanAnalysisReportScreen extends StatefulWidget {
   @override
 
 
-  State<LoanAnalysisReportScreen> createState() =>
+  ConsumerState<LoanAnalysisReportScreen> createState() =>
       _LoanAnalysisReportScreenState();
 }
 
-class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
+class _LoanAnalysisReportScreenState extends ConsumerState<LoanAnalysisReportScreen>
     with TickerProviderStateMixin {
   late final LoanAnalysisController _controller;
   late final AnimationController _ambientController;
   late final ScrollController _scrollController;
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -56,6 +60,70 @@ class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
     _ambientController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _exportPdf() async {
+    if (_isExporting || _controller.isLoading) return;
+    setState(() => _isExporting = true);
+    try {
+      final repo = ref.read(loanRepositoryProvider);
+      final loanId = _controller.isLoading ? widget.loanId ?? '' : _controller.report.loanId;
+      final lenderName = _controller.isLoading ? null : _controller.report.lenderName;
+      final path = await repo.exportLoanAsPdf(loanId, lenderName: lenderName);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 5),
+            content: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF201F20).withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFC3C6D7).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.picture_as_pdf, color: Color(0xFFC3C6D7), size: 20),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'PDF exported successfully!',
+                          style: TextStyle(color: Color(0xFFE5E2E3), fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => OpenFile.open(path),
+                        child: const Text('Open', style: TextStyle(color: Color(0xFFDBC3A8), fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      developer.log('Export failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: ${e.toString()}'),
+            backgroundColor: const Color(0xFFFFB4AB).withValues(alpha: 0.9),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
   }
 
   @override
@@ -89,6 +157,8 @@ class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
                             );
                           },
                           onGoHome: () => AppNavigator.goHome(context),
+                          onExport: _exportPdf,
+                          isExporting: _isExporting,
                         ),
                 ),
               ),
@@ -114,7 +184,7 @@ class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
             width: MediaQuery.of(context).size.width * 0.9,
-            constraints: const BoxConstraints(maxWidth: 512),
+            constraints: const BoxConstraints(maxWidth: 560),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             decoration: BoxDecoration(
               color: const Color(0xFF201F20).withValues(alpha: 0.6),
@@ -167,9 +237,29 @@ class _LoanAnalysisReportScreenState extends State<LoanAnalysisReportScreen>
                   },
                   child: const _NavBarItem(icon: Icons.compare_arrows_outlined, label: 'Compare'),
                 ),
+                // Export PDF button
                 GestureDetector(
-                  onTap: () => AppNavigator.goToProfile(context),
-                  child: const _NavBarItem(icon: Icons.person_outline, label: 'Profile'),
+                  onTap: _isExporting ? null : _exportPdf,
+                  child: _isExporting
+                      ? const SizedBox(
+                          width: 44,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFFC3C6D7),
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text('Export', style: TextStyle(color: Color(0xFFC3C6D7), fontSize: 10)),
+                            ],
+                          ),
+                        )
+                      : const _NavBarItem(icon: Icons.picture_as_pdf_outlined, label: 'Export'),
                 ),
               ],
             ),
@@ -274,6 +364,8 @@ class _ReportScrollView extends StatelessWidget {
   final ScrollController scrollController;
   final VoidCallback onOpenAssistant;
   final VoidCallback onGoHome;
+  final VoidCallback onExport;
+  final bool isExporting;
 
   const _ReportScrollView({
     required this.controller,
@@ -281,6 +373,8 @@ class _ReportScrollView extends StatelessWidget {
     required this.scrollController,
     required this.onOpenAssistant,
     required this.onGoHome,
+    required this.onExport,
+    this.isExporting = false,
   });
 
   @override
@@ -299,6 +393,8 @@ class _ReportScrollView extends StatelessWidget {
                 report: report,
                 onOpenSources: () => _openSourcesSheet(context, report),
                 onGoHome: onGoHome,
+                onExport: onExport,
+                isExporting: isExporting,
               ),
               const SizedBox(height: 20),
               _HeroScoreCard(
@@ -347,11 +443,15 @@ class _TopAppBar extends StatelessWidget {
   final LoanAnalysisReport report;
   final VoidCallback onOpenSources;
   final VoidCallback onGoHome;
+  final VoidCallback? onExport;
+  final bool isExporting;
 
   const _TopAppBar({
     required this.report,
     required this.onOpenSources,
     required this.onGoHome,
+    this.onExport,
+    this.isExporting = false,
   });
 
   @override
@@ -479,6 +579,28 @@ class _TopAppBar extends StatelessWidget {
                 ),
                 tooltip: 'Source references',
               ),
+              if (onExport != null)
+                isExporting
+                    ? const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: _LensColors.primary,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      )
+                    : IconButton(
+                        onPressed: onExport,
+                        icon: const Icon(
+                          Icons.picture_as_pdf_outlined,
+                          color: _LensColors.primary,
+                          size: 22,
+                        ),
+                        tooltip: 'Export as PDF',
+                      ),
             ],
           ),
         ),

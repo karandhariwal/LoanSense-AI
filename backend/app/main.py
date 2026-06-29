@@ -1,6 +1,7 @@
 import os
 import uuid
 import logging
+import sqlalchemy
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.database.session import engine, get_db
 from app.database.base import Base
-from app.database.models import LoanReport  # noqa: F401 - registers model with Base
+from app.database.models import LoanReport, ChatMessage  # noqa: F401 - registers models with Base
 from app.database.user_models import UserProfile, UserSettings  # noqa: F401 - registers models with Base
 from app.database.enums import ProcessingStatus
 from app.tasks import process_loan_document_task
@@ -22,6 +23,7 @@ from app.api.compare import router as compare_router
 from app.api.chat import router as chat_router
 from app.api.user import router as user_router
 from app.api.auth import router as auth_router
+from app.api.export import router as export_router
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -55,10 +57,76 @@ app.include_router(compare_router, prefix="/compare", tags=["compare"])
 app.include_router(chat_router, prefix="/chat", tags=["chat"])
 app.include_router(user_router, prefix="/user", tags=["user"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(export_router, prefix="/export", tags=["export"])
 
 @app.get("/")
 def read_root():
     return {"message": "Welcome to LoanSense AI API"}
+
+@app.get("/health")
+async def health_check(db: Session = Depends(get_db)):
+    """
+    System health check — verifies database, ChromaDB, and Redis connectivity.
+    Returns a structured status report for all backend subsystems.
+    """
+    import os
+    from datetime import datetime, timezone as tz
+
+    health = {
+        "status": "ok",
+        "timestamp": datetime.now(tz.utc).isoformat(),
+        "subsystems": {}
+    }
+    overall_ok = True
+
+    # 1. Database check
+    try:
+        db.execute(sqlalchemy.text("SELECT 1"))
+        health["subsystems"]["database"] = {"status": "ok", "type": "SQLite"}
+    except Exception as e:
+        health["subsystems"]["database"] = {"status": "error", "detail": str(e)}
+        overall_ok = False
+
+    # 2. ChromaDB check
+    try:
+        chroma_path = settings.CHROMA_DB_DIR
+        chroma_exists = os.path.isdir(chroma_path)
+        chroma_size_mb = 0.0
+        sqlite_path = os.path.join(chroma_path, "chroma.sqlite3")
+        if os.path.isfile(sqlite_path):
+            chroma_size_mb = round(os.path.getsize(sqlite_path) / (1024 * 1024), 2)
+        health["subsystems"]["chromadb"] = {
+            "status": "ok" if chroma_exists else "missing",
+            "path": chroma_path,
+            "size_mb": chroma_size_mb,
+        }
+        if not chroma_exists:
+            overall_ok = False
+    except Exception as e:
+        health["subsystems"]["chromadb"] = {"status": "error", "detail": str(e)}
+        overall_ok = False
+
+    # 3. Redis check
+    try:
+        import redis as redis_lib
+        r = redis_lib.from_url(settings.REDIS_URL, socket_connect_timeout=2)
+        r.ping()
+        health["subsystems"]["redis"] = {"status": "ok", "url": settings.REDIS_URL}
+    except Exception as e:
+        health["subsystems"]["redis"] = {"status": "error", "detail": str(e)}
+        overall_ok = False
+
+    # 4. NVIDIA API key configured
+    health["subsystems"]["nvidia_api"] = {
+        "status": "configured" if settings.NVIDIA_API_KEY else "missing",
+        "model": settings.NVIDIA_LLM_MODEL,
+        "embed_model": settings.NVIDIA_EMBED_MODEL,
+    }
+    if not settings.NVIDIA_API_KEY:
+        overall_ok = False
+
+    health["status"] = "ok" if overall_ok else "degraded"
+    return health
 
 @app.post("/upload")
 async def upload_loan(

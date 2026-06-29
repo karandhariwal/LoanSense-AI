@@ -60,7 +60,7 @@ class _UploadAiScanScreenState extends ConsumerState<UploadAiScanScreen>
   late List<_AnalysisStep> _steps;
   String? _errorMessage;
   bool _isNavigating = false;
-  String _pollingMessage = 'AI is identifying 14 critical nodes in your loan agreement.';
+  String _pollingMessage = 'AI engine is analyzing your loan agreement...';
 
   @override
   void initState() {
@@ -221,7 +221,7 @@ class _UploadAiScanScreenState extends ConsumerState<UploadAiScanScreen>
               : e is NetworkException
                   ? e.message
                   : e.toString();
-          _pollingMessage = 'AI is identifying 14 critical nodes in your loan agreement.';
+          _pollingMessage = 'AI engine is analyzing your loan agreement...';
         });
       }
     }
@@ -416,7 +416,7 @@ class _UploadAiScanScreenState extends ConsumerState<UploadAiScanScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          'LOANSENSE AI ENGINE V4.2',
+          'LOANSENSE AI ENGINE',
           style: GoogleFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w600,

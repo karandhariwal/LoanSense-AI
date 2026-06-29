@@ -23,6 +23,7 @@ from app.models.user_profile_schemas import (
     UpdateUserSettingsRequest,
     UserProfileResponse,
     UserSettingsResponse,
+    BulkDeleteDocumentsRequest,
 )
 from app.services.user_profile_service import UserProfileService
 
@@ -259,3 +260,37 @@ async def delete_single_document(
         deleted_count=1,
         message=f"Document {document_id} deleted successfully.",
     )
+
+
+@router.post(
+    "/documents/bulk-delete",
+    response_model=DeleteDocumentsResponse,
+    response_model_by_alias=True,
+    summary="Bulk delete specific documents",
+    description="Delete a batch of loan documents by their UUIDs, including files on disk.",
+)
+async def bulk_delete_documents(
+    body: BulkDeleteDocumentsRequest,
+    db: Session = Depends(get_db),
+    service: UserProfileService = Depends(get_user_profile_service),
+) -> DeleteDocumentsResponse:
+    """POST /user/documents/bulk-delete — bulk-delete specific user documents."""
+    logger.info(f"POST /user/documents/bulk-delete requested for {len(body.document_ids)} documents")
+    try:
+        user_id = _current_user_id()
+        deleted_count = 0
+        for doc_id in body.document_ids:
+            found = service.delete_document_by_id(db, doc_id, user_id)
+            if found:
+                deleted_count += 1
+        return DeleteDocumentsResponse(
+            deleted_count=deleted_count,
+            message=f"Successfully deleted {deleted_count} document(s).",
+        )
+    except Exception as exc:
+        logger.error(f"Failed to bulk delete documents: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to bulk delete documents: {str(exc)}",
+        )
+

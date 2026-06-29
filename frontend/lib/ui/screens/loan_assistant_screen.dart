@@ -386,7 +386,7 @@ class LoanAssistantConversationController extends ChangeNotifier {
       _report = _generateFallbackReport(loanId);
     }
     isLoading = false;
-    bootstrap();
+    await bootstrap();
   }
 
   static LoanAnalysisReport _generateFallbackReport(String loanId) {
@@ -410,12 +410,24 @@ class LoanAssistantConversationController extends ChangeNotifier {
     );
   }
 
-  void bootstrap() {
+  Future<void> bootstrap() async {
     if (_report == null) return;
     final seed = _repository.bootstrap(report);
-    _messages
-      ..clear()
-      ..addAll(seed.messages);
+
+    List<LoanAssistantMessage> historyMessages = [];
+    try {
+      historyMessages = await _repository.fetchHistory(loanId);
+    } catch (e) {
+      developer.log('Error fetching chat history in bootstrap: $e');
+    }
+
+    _messages.clear();
+    if (historyMessages.isNotEmpty) {
+      _messages.addAll(historyMessages);
+    } else {
+      _messages.addAll(seed.messages);
+    }
+
     suggestions = seed.suggestions;
     documentLabel = seed.documentLabel;
     pageLabel = seed.pageLabel;
@@ -456,7 +468,7 @@ class LoanAssistantConversationController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final reply = await _repository.reply(
+      final stream = _repository.replyStream(
         context: LoanAssistantConversationContext(
           report: report,
           targetClauseId: targetClauseId,
@@ -467,17 +479,48 @@ class LoanAssistantConversationController extends ChangeNotifier {
         query: query,
       );
 
-      final index = _messages.indexWhere((m) => m.id == typingMessage.id);
-      if (index != -1) {
-        _messages[index] = reply.assistantMessage.copyWith(
-          id: typingMessage.id,
-          timestamp: DateTime.now(),
-          isFresh: true,
-        );
-        suggestions = reply.suggestions;
-        contextLabel = reply.contextLabel;
-        _expanded[typingMessage.id] = true;
-        _settleFresh(typingMessage.id);
+      String accumulatedAnswer = '';
+      await for (final event in stream) {
+        final index = _messages.indexWhere((m) => m.id == typingMessage.id);
+        if (index == -1) break;
+
+        if (event is LoanAssistantTokenEvent) {
+          accumulatedAnswer += event.token;
+          
+          _messages[index] = LoanAssistantMessage(
+            id: typingMessage.id,
+            role: LoanAssistantRole.assistant,
+            content: accumulatedAnswer,
+            timestamp: typingMessage.timestamp,
+            state: LoanAssistantMessageState.complete,
+            isFresh: false,
+            card: LoanAssistantCardData(
+              engineLabel: 'LOANSENSE AI ENGINE (STREAMING)',
+              answerLabel: 'AI Response',
+              answer: accumulatedAnswer,
+              simplifiedAnswer: accumulatedAnswer,
+              sourceClause: 'Analyzing document context...',
+              pageReference: 'Retrieving citations...',
+              riskContext: 'Verifying legal provisions in real-time.',
+              highlightTerms: const [],
+              insightChips: const [],
+              references: const [],
+            ),
+          );
+          notifyListeners();
+        } else if (event is LoanAssistantFinalEvent) {
+          final reply = event.reply;
+          _messages[index] = reply.assistantMessage.copyWith(
+            id: typingMessage.id,
+            content: accumulatedAnswer.isNotEmpty ? accumulatedAnswer : reply.assistantMessage.content,
+            timestamp: DateTime.now(),
+            isFresh: true,
+          );
+          suggestions = reply.suggestions;
+          contextLabel = reply.contextLabel;
+          _expanded[typingMessage.id] = true;
+          _settleFresh(typingMessage.id);
+        }
       }
     } catch (e, stackTrace) {
       developer.log(

@@ -9,23 +9,27 @@ abstract class AppConfig {
     defaultValue: '',
   );
 
+  static bool get hasApiBaseUrlOverride => _apiBaseUrlOverride.isNotEmpty;
+
   /// API Base URL - change this based on environment
   static String get apiBaseUrl =>
-      _apiBaseUrlOverride.isNotEmpty ? _apiBaseUrlOverride : developmentUrl;
+      hasApiBaseUrlOverride ? _apiBaseUrlOverride : developmentUrl;
   
   /// Available environments
-  static String get developmentUrl {
-    final host = _getLocalHostForEnvironment();
-    return 'http://$host:8000';
-  }
+  static String get developmentUrl => developmentUrls.first;
+
+  static List<String> get developmentUrls => _getLocalHostsForEnvironment()
+      .map((host) => 'http://$host:8000')
+      .toList(growable: false);
 
   static const String stagingUrl = 'https://staging-api.loansense.example.com';
   static const String productionUrl = 'https://api.loansense.example.com';
   
   /// Network timeouts (in seconds)
   static const int connectTimeout = 30;
-  static const int receiveTimeout = 30;
-  static const int sendTimeout = 30;
+  // LLM comparison pipeline can take up to 60s+; set generous receive timeout
+  static const int receiveTimeout = 180;
+  static const int sendTimeout = 60;
   
   /// API request configuration
   static const bool enableApiLogging = true;
@@ -53,23 +57,23 @@ abstract class AppConfig {
   }
 }
 
-String _getLocalHostForEnvironment() {
+List<String> _getLocalHostsForEnvironment() {
   if (kIsWeb) {
-    return 'localhost';
+    return const ['localhost', '127.0.0.1'];
   }
 
   switch (defaultTargetPlatform) {
     case TargetPlatform.android:
-      // For physical device: run `adb reverse tcp:8000 tcp:8000` to tunnel
-      // localhost on the device to your PC's port 8000.
-      // For emulator only (no adb reverse needed): use '10.0.2.2' instead.
-      return 'localhost';
+      // For a physical Android device with `adb reverse tcp:8000 tcp:8000`,
+      // 127.0.0.1 on the phone tunnels to the PC's localhost. Try it first.
+      // 10.0.2.2 is the Android emulator bridge — try it second.
+      return const ['127.0.0.1', '10.0.2.2', 'localhost'];
     case TargetPlatform.iOS:
     case TargetPlatform.macOS:
     case TargetPlatform.windows:
     case TargetPlatform.linux:
     case TargetPlatform.fuchsia:
-      return 'localhost';
+      return const ['localhost', '127.0.0.1'];
   }
 }
 
@@ -104,11 +108,26 @@ class BuildConfig {
   }
 
   static String get apiUrl {
+    if (AppConfig.hasApiBaseUrlOverride) {
+      return AppConfig.apiBaseUrl;
+    }
+
     return AppConfig.getApiUrl(environment: environmentName);
+  }
+
+  static List<String> get apiUrls {
+    if (AppConfig.hasApiBaseUrlOverride) {
+      return [AppConfig.apiBaseUrl];
+    }
+
+    if (isDevelopment) {
+      return AppConfig.developmentUrls;
+    }
+
+    return [AppConfig.getApiUrl(environment: environmentName)];
   }
 
   static bool get isProduction => currentFlavor == BuildFlavor.production;
   static bool get isStaging => currentFlavor == BuildFlavor.staging;
   static bool get isDevelopment => currentFlavor == BuildFlavor.development;
 }
-

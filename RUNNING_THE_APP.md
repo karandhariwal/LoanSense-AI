@@ -64,7 +64,7 @@ The Celery worker picks up background tasks (e.g., PDF analysis, AI extraction) 
 
 ```powershell
 cd c:\Users\Administrator\Desktop\Karan\Loan\backend
-celery -A app.celery_app worker --loglevel=info --pool=solo
+.\.venv\Scripts\celery -A app.celery_app worker --loglevel=info --pool=solo
 ```
 
 > ⚠️ `--pool=solo` is **required on Windows**. The default multiprocessing pool is not supported on Windows.
@@ -78,7 +78,7 @@ The backend exposes the REST API (upload, analysis, chat, risks, compare) on por
 
 ```powershell
 cd c:\Users\Administrator\Desktop\Karan\Loan\backend
-python -m app.main
+.\.venv\Scripts\python -m app.main
 ```
 
 **Verify it's running:**
@@ -137,11 +137,11 @@ docker start redis-loansense
 
 # Terminal 2 — Celery Worker
 cd c:\Users\Administrator\Desktop\Karan\Loan\backend
-celery -A app.celery_app worker --loglevel=info --pool=solo
+.\.venv\Scripts\celery -A app.celery_app worker --loglevel=info --pool=solo
 
 # Terminal 3 — Backend
 cd c:\Users\Administrator\Desktop\Karan\Loan\backend
-python -m app.main
+.\.venv\Scripts\python -m app.main
 
 # Terminal 4 — Flutter
 cd c:\Users\Administrator\Desktop\Karan\Loan\frontend

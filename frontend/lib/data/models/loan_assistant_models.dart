@@ -152,3 +152,15 @@ class LoanAssistantConversationContext {
     this.targetClauseId,
   });
 }
+
+abstract class LoanAssistantStreamEvent {}
+
+class LoanAssistantTokenEvent extends LoanAssistantStreamEvent {
+  final String token;
+  LoanAssistantTokenEvent(this.token);
+}
+
+class LoanAssistantFinalEvent extends LoanAssistantStreamEvent {
+  final LoanAssistantReply reply;
+  LoanAssistantFinalEvent(this.reply);
+}

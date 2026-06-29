@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field, ConfigDict
 from .risk_clause import RiskClause
 from .loan_analysis import LoanAnalysisResponse
-from .loan_comparison import LoanComparison
-from .chat_citation import RAGResponse
+from .loan_comparison import LoanComparisonResponse, LoanComparison
+from .chat_citation import RAGResponse, ChatCitation
 
 
 class AnalysisResponse(BaseModel):
@@ -243,7 +243,7 @@ class CompareResponse(BaseModel):
         }
     )
 
-    comparison: LoanComparison = Field(
+    comparison: Union[LoanComparisonResponse, LoanComparison] = Field(
         ...,
         description="The detailed cost, interest, and risk comparison values.",
     )
@@ -308,3 +308,14 @@ class ChatResponse(RAGResponse):
         None,
         description="Unique identifier for the chat conversation session.",
     )
+
+
+class ChatMessageResponse(BaseModel):
+    """
+    Model representing a single message in the chat history.
+    """
+    role: str = Field(..., description="Role of the message author: 'user' or 'assistant'")
+    content: str = Field(..., description="The message text content.")
+    citations: Optional[List[ChatCitation]] = Field(default=None, description="Optional list of citations for assistant responses.")
+    confidence_score: Optional[float] = Field(default=None, description="Optional confidence score of the assistant message.")
+    created_at: datetime = Field(..., description="Timestamp of the message.")

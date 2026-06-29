@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:loansense_ai/data/models/loan_analysis_report.dart';
+import 'package:loansense_ai/data/models/loan_history_item.dart';
 import 'package:loansense_ai/presentation/providers/active_loan_provider.dart';
+import 'package:loansense_ai/presentation/providers/loan_providers.dart';
+import 'package:loansense_ai/presentation/providers/profile_providers.dart';
 import 'package:loansense_ai/ui/screens/analysis_report_screen.dart';
 import 'package:loansense_ai/ui/screens/upload_ai_scan_screen.dart';
 import 'package:loansense_ai/ui/screens/clause_intelligence_screen.dart';
@@ -22,6 +26,8 @@ class HomeDashboardScreen extends ConsumerStatefulWidget {
 class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _scanController;
+  late TextEditingController _searchController;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -30,6 +36,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
+    _searchController = TextEditingController();
   }
 
   /// Shows a themed snackbar prompting the user to upload a loan document
@@ -92,6 +99,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen>
   @override
   void dispose() {
     _scanController.dispose();
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -313,7 +322,24 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen>
     );
   }
 
+  /// Returns a time-appropriate greeting word based on current local hour.
+  String _greetingWord() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
   Widget _buildGreetingSection() {
+    // Read user's display name from the profile provider (fallback to empty).
+    final profileAsync = ref.watch(profileSettingsProvider);
+    final displayName = profileAsync.whenOrNull(
+      data: (state) => state.profile.displayName,
+    ) ?? '';
+    final greeting = displayName.isNotEmpty
+        ? '${_greetingWord()}, ${displayName.split(' ').first}'
+        : _greetingWord();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -328,7 +354,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          'Good Evening, Karan',
+          greeting,
           style: GoogleFonts.spaceGrotesk(
             fontSize: 48,
             fontWeight: FontWeight.w700,
@@ -698,13 +724,362 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen>
     );
   }
 
+  Future<void> _confirmBulkDelete(BuildContext context, Set<String> selectedIds) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF201F20),
+        title: Text(
+          'Delete Selected Documents?',
+          style: GoogleFonts.spaceGrotesk(
+            color: const Color(0xFFE5E2E3),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to permanently delete the ${selectedIds.length} selected loan document(s)? This action cannot be undone.',
+          style: GoogleFonts.inter(color: const Color(0xFFC7C6CC)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(color: const Color(0xFFC3C6D7)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.inter(color: const Color(0xFFFFB4AB), fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        _showFintechToast(
+          context: context,
+          message: 'Deleting selected documents...',
+          isError: false,
+        );
+        final repo = ref.read(loanRepositoryProvider);
+        await repo.deleteLoansBulk(selectedIds.toList());
+        
+        // Invalidate history to trigger refresh
+        ref.invalidate(loanHistoryProvider);
+        
+        // Reset selection state
+        ref.read(loanHistorySelectionProvider.notifier).state = {};
+        ref.read(loanHistorySelectionModeProvider.notifier).state = false;
+        
+        if (context.mounted) {
+          _showFintechToast(
+            context: context,
+            message: 'Documents deleted successfully.',
+            isError: false,
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          _showFintechToast(
+            context: context,
+            message: 'Failed to delete documents: ${e.toString()}',
+            isError: true,
+          );
+        }
+      }
+    }
+  }
+
+  Widget _buildRiskChip(String label, String? value, bool isSelected, LoanHistoryFilters filters) {
+    return ChoiceChip(
+      label: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: isSelected ? const Color(0xFF131314) : const Color(0xFFC3C6D7),
+        ),
+      ),
+      selected: isSelected,
+      selectedColor: const Color(0xFFC3C6D7),
+      backgroundColor: Colors.white.withValues(alpha: 0.03),
+      checkmarkColor: const Color(0xFF131314),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(9999),
+        side: BorderSide(
+          color: isSelected ? const Color(0xFFC3C6D7) : Colors.white.withValues(alpha: 0.12),
+        ),
+      ),
+      onSelected: (selected) {
+        if (selected) {
+          ref.read(loanHistoryFiltersProvider.notifier).update(
+            (s) => s.copyWith(riskLevel: value, clearRiskLevel: value == null),
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildFiltersPanel(LoanHistoryFilters filters) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Search Input
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          ),
+          child: TextField(
+            controller: _searchController,
+            style: GoogleFonts.inter(color: const Color(0xFFE5E2E3), fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Search by lender or document name...',
+              hintStyle: GoogleFonts.inter(color: Colors.white30, fontSize: 14),
+              prefixIcon: const Icon(Icons.search, color: Colors.white30, size: 20),
+              suffixIcon: filters.search.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.white54, size: 16),
+                      onPressed: () {
+                        _searchController.clear();
+                        _searchDebounce?.cancel();
+                        ref.read(loanHistoryFiltersProvider.notifier).update(
+                          (s) => s.copyWith(search: ''),
+                        );
+                      },
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            onChanged: (val) {
+              _searchDebounce?.cancel();
+              _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                ref.read(loanHistoryFiltersProvider.notifier).update(
+                  (s) => s.copyWith(search: val),
+                );
+              });
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Risk filters chips row
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildRiskChip('All', null, filters.riskLevel == null, filters),
+              const SizedBox(width: 8),
+              _buildRiskChip('Safe 🟢', 'safe', filters.riskLevel == 'safe', filters),
+              const SizedBox(width: 8),
+              _buildRiskChip('Moderate 🟡', 'moderate', filters.riskLevel == 'moderate', filters),
+              const SizedBox(width: 8),
+              _buildRiskChip('Dangerous 🔴', 'dangerous', filters.riskLevel == 'dangerous', filters),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Date Picker & Sort controls
+        Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: () async {
+                  final picked = await showDateRangePicker(
+                    context: context,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                    initialDateRange: filters.startDate != null && filters.endDate != null
+                        ? DateTimeRange(start: filters.startDate!, end: filters.endDate!)
+                        : null,
+                    builder: (context, child) {
+                      return Theme(
+                        data: ThemeData.dark().copyWith(
+                          colorScheme: const ColorScheme.dark(
+                            primary: Color(0xFFC3C6D7),
+                            onPrimary: Color(0xFF131314),
+                            surface: Color(0xFF201F20),
+                            onSurface: Color(0xFFE5E2E3),
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+                  if (picked != null) {
+                    ref.read(loanHistoryFiltersProvider.notifier).update(
+                      (s) => s.copyWith(startDate: picked.start, endDate: picked.end),
+                    );
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.03),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.date_range, color: Color(0xFFC3C6D7), size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          filters.startDate == null
+                              ? 'Select Dates'
+                              : "${filters.startDate!.month}/${filters.startDate!.day} - ${filters.endDate!.month}/${filters.endDate!.day}",
+                          style: GoogleFonts.inter(color: const Color(0xFFC3C6D7), fontSize: 12, fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (filters.startDate != null)
+                        GestureDetector(
+                          onTap: () {
+                            ref.read(loanHistoryFiltersProvider.notifier).update(
+                              (s) => s.copyWith(clearStartDate: true, clearEndDate: true),
+                            );
+                          },
+                          child: const Icon(Icons.close, color: Colors.white54, size: 14),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                ref.read(loanHistoryFiltersProvider.notifier).update(
+                  (s) => s.copyWith(sortBy: value),
+                );
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'upload_date', child: Text('Sort by Upload Date')),
+                const PopupMenuItem(value: 'risk_score', child: Text('Sort by Risk Score')),
+                const PopupMenuItem(value: 'lender_name', child: Text('Sort by Lender Name')),
+              ],
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.sort, color: Color(0xFFC3C6D7), size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      filters.sortBy == 'risk_score'
+                          ? 'Risk Score'
+                          : filters.sortBy == 'lender_name'
+                              ? 'Lender'
+                              : 'Upload Date',
+                      style: GoogleFonts.inter(color: const Color(0xFFC3C6D7), fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(
+                filters.order == 'asc' ? Icons.arrow_upward : Icons.arrow_downward,
+                color: const Color(0xFFC3C6D7),
+                size: 18,
+              ),
+              onPressed: () {
+                ref.read(loanHistoryFiltersProvider.notifier).update(
+                  (s) => s.copyWith(order: filters.order == 'asc' ? 'desc' : 'asc'),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBulkActionsBar(Set<String> selectedIds) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFB4AB).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFB4AB).withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle_outline, color: Color(0xFFFFB4AB), size: 18),
+              const SizedBox(width: 8),
+              Text(
+                '${selectedIds.length} selected',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFFFB4AB),
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: () => _confirmBulkDelete(context, selectedIds),
+                icon: const Icon(Icons.delete_forever, color: Color(0xFFFFB4AB), size: 16),
+                label: Text(
+                  'Delete',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFFFB4AB),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () {
+                  ref.read(loanHistorySelectionProvider.notifier).state = {};
+                },
+                child: Text(
+                  'Deselect All',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFFC3C6D7),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildIntelligenceHistory() {
+    final historyAsync = ref.watch(loanHistoryProvider);
+    final filters = ref.watch(loanHistoryFiltersProvider);
+    final isSelectionMode = ref.watch(loanHistorySelectionModeProvider);
+    final selectedIds = ref.watch(loanHistorySelectionProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
               'INTELLIGENCE HISTORY',
@@ -715,60 +1090,132 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen>
                 letterSpacing: 1.2,
               ),
             ),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () {},
-                child: Text(
-                  'View All Intelligence',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFC3C6D7),
-                  ),
+            TextButton.icon(
+              onPressed: () {
+                ref.read(loanHistorySelectionModeProvider.notifier).state = !isSelectionMode;
+                ref.read(loanHistorySelectionProvider.notifier).state = {};
+              },
+              icon: Icon(
+                isSelectionMode ? Icons.close : Icons.select_all,
+                color: const Color(0xFFC3C6D7),
+                size: 16,
+              ),
+              label: Text(
+                isSelectionMode ? 'Cancel' : 'Select',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFC3C6D7),
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        SizedBox(
-          height: 135, // Adjust based on content
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
-            children: const [
-              _HistoryCard(
-                title: 'Global Horizon Trust',
-                subtitle: 'Home Equity Loan',
-                riskScore: '88%',
-                date: 'Oct 24, 2023',
-                status: 'Analyzed',
-                statusIcon: Icons.check_circle_outline,
-                color: Color(0xFFFFB4AB),
-              ),
-              SizedBox(width: 24),
-              _HistoryCard(
-                title: 'Apex FinTech Corp',
-                subtitle: 'Business Expansion',
-                riskScore: '12%',
-                date: 'Oct 22, 2023',
-                status: 'Analyzed',
-                statusIcon: Icons.check_circle_outline,
+        const SizedBox(height: 16),
+        _buildFiltersPanel(filters),
+        const SizedBox(height: 16),
+        if (isSelectionMode && selectedIds.isNotEmpty) ...[
+          _buildBulkActionsBar(selectedIds),
+          const SizedBox(height: 16),
+        ],
+        historyAsync.when(
+          loading: () => const SizedBox(
+            height: 135,
+            child: Center(
+              child: CircularProgressIndicator(
                 color: Color(0xFFC3C6D7),
+                strokeWidth: 2,
               ),
-              SizedBox(width: 24),
-              _HistoryCard(
-                title: 'Stellar Credit Union',
-                subtitle: 'Personal Line',
-                riskScore: '45%',
-                date: 'Oct 19, 2023',
-                status: 'Verifying',
-                statusIcon: Icons.sync,
-                color: Color(0xFFDBC3A8),
-              ),
-            ],
+            ),
           ),
+          error: (err, _) => SizedBox(
+            height: 80,
+            child: Center(
+              child: Text(
+                'Could not load history.',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xFFC7C6CC).withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ),
+          data: (items) {
+            if (items.isEmpty) {
+              return SizedBox(
+                height: 80,
+                child: Center(
+                  child: Text(
+                    'No documents matching filters found.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: const Color(0xFFC7C6CC).withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+              );
+            }
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 16),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final isSelected = selectedIds.contains(item.loanId);
+
+                return Row(
+                  children: [
+                    if (isSelectionMode) ...[
+                      Checkbox(
+                        value: isSelected,
+                        activeColor: const Color(0xFFC3C6D7),
+                        checkColor: const Color(0xFF131314),
+                        side: const BorderSide(color: Colors.white30, width: 1.5),
+                        onChanged: (val) {
+                          final current = Set<String>.from(selectedIds);
+                          if (val == true) {
+                            current.add(item.loanId);
+                          } else {
+                            current.remove(item.loanId);
+                          }
+                          ref.read(loanHistorySelectionProvider.notifier).state = current;
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Expanded(
+                      child: InkWell(
+                        onTap: isSelectionMode
+                            ? () {
+                                final current = Set<String>.from(selectedIds);
+                                if (current.contains(item.loanId)) {
+                                  current.remove(item.loanId);
+                                } else {
+                                  current.add(item.loanId);
+                                }
+                                ref.read(loanHistorySelectionProvider.notifier).state = current;
+                              }
+                            : () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => LoanAnalysisReportScreen(
+                                      report: null,
+                                      loanId: item.loanId,
+                                    ),
+                                  ),
+                                );
+                              },
+                        child: _HistoryCardFromItem(item: item),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
         ),
       ],
     );
@@ -805,18 +1252,20 @@ class _TopAppBar extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Initials avatar — no external image dependency
               Container(
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                  image: const DecorationImage(
-                    image: NetworkImage(
-                      'https://lh3.googleusercontent.com/aida-public/AB6AXuA61fGi0g5PlD1-3yeoANDNZzNKyOC8ji3lBH58C_NyHNcnpD1HXCCoriUKDuvjwUyNOGlhi4QvZllMJwFvrputZroFTtmyDkRmkviJD-Nff4ZZ7YKxJHEnBT9Y9DWnrZSkj48WoncEPiQUWOxnbfKrOK78PsUr-zFpazYDyEZznGc_c3bMsRk8VZ5tXs809bA9vxbDlePThlz6pcUnBMOB0DWP_j6iad-Pk3Kyj1b_iOzG84H7Gyemxnl7jkMsYewgIZeTg7vTgA',
-                    ),
-                    fit: BoxFit.cover,
+                  color: const Color(0xFFC3C6D7).withValues(alpha: 0.15),
+                  border: Border.all(color: const Color(0xFFC3C6D7).withValues(alpha: 0.35)),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.person_outline,
+                    color: Color(0xFFC3C6D7),
+                    size: 20,
                   ),
                 ),
               ),
@@ -1262,7 +1711,7 @@ class _HistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 320,
+      width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(12),
@@ -1379,8 +1828,64 @@ class _HistoryCard extends StatelessWidget {
     );
   }
 }
+/// Builds a _HistoryCard from a real [LoanHistoryItem] returned by the backend.
+class _HistoryCardFromItem extends StatelessWidget {
+  final LoanHistoryItem item;
+  const _HistoryCardFromItem({required this.item});
 
-/// Small rounded pill chip used in the empty state to advertise locked features.
+  @override
+  Widget build(BuildContext context) {
+    final status = item.status.toUpperCase();
+    final riskScore = item.riskScore; // 0–100 risk percentage from backend
+
+    // Pick card accent color based on risk percentage (0=safest, 100=riskiest)
+    Color accentColor;
+    if (status == 'FAILED') {
+      accentColor = const Color(0xFFFFB4AB);
+    } else if (riskScore != null && riskScore <= 30) {
+      accentColor = const Color(0xFFC3C6D7); // safe (low risk %)
+    } else if (riskScore != null && riskScore <= 60) {
+      accentColor = const Color(0xFFDBC3A8); // moderate
+    } else if (riskScore != null) {
+      accentColor = const Color(0xFFFFB4AB); // high risk
+    } else {
+      accentColor = const Color(0xFFC7C6CC); // unknown
+    }
+
+    // Status display
+    final (statusLabel, statusIcon) = switch (status) {
+      'COMPLETED' => ('Analyzed', Icons.check_circle_outline),
+      'FAILED' => ('Failed', Icons.error_outline_rounded),
+      'PROCESSING' => ('Processing', Icons.sync),
+      'PENDING' => ('Pending', Icons.hourglass_empty),
+      _ => ('Unknown', Icons.help_outline),
+    };
+
+    // Risk badge text (backend already returns 0–100 risk %)
+    final riskLabel = riskScore != null
+        ? '${riskScore.round()}%'
+        : status == 'COMPLETED' ? 'N/A' : '---';
+
+    // Date formatting
+    final d = item.uploadDate;
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final dateStr = '${months[d.month - 1]} ${d.day}, ${d.year}';
+
+    return _HistoryCard(
+      title: item.lenderName.isNotEmpty ? item.lenderName : 'Unknown Lender',
+      subtitle: item.status == 'COMPLETED' ? 'Loan Agreement' : item.status.toLowerCase(),
+      riskScore: riskLabel,
+      date: dateStr,
+      status: statusLabel,
+      statusIcon: statusIcon,
+      color: accentColor,
+    );
+  }
+}
+
 class _FeaturePill extends StatelessWidget {
   final String label;
   const _FeaturePill({required this.label});

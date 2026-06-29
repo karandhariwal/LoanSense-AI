@@ -19,3 +19,4 @@ alembic
 celery
 redis
 numpy-financial
+reportlab

@@ -11,9 +11,35 @@ abstract class LoanAssistantRepository {
     required LoanAssistantConversationContext context,
     required String query,
   });
+
+  Future<List<LoanAssistantMessage>> fetchHistory(String loanId);
+
+  Stream<LoanAssistantStreamEvent> replyStream({
+    required LoanAssistantConversationContext context,
+    required String query,
+  });
 }
 
 class MockLoanAssistantRepository implements LoanAssistantRepository {
+  @override
+  Future<List<LoanAssistantMessage>> fetchHistory(String loanId) async {
+    return const [];
+  }
+
+  @override
+  Stream<LoanAssistantStreamEvent> replyStream({
+    required LoanAssistantConversationContext context,
+    required String query,
+  }) async* {
+    final words = "This is a mock streaming response from the LoanSense AI Assistant.".split(" ");
+    for (final word in words) {
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      yield LoanAssistantTokenEvent("$word ");
+    }
+    final finalReply = _buildResponse(context: context, query: query);
+    yield LoanAssistantFinalEvent(finalReply);
+  }
+
   @override
   LoanAssistantConversationSeed bootstrap(LoanAnalysisReport report) {
     final initialReply = _buildResponse(

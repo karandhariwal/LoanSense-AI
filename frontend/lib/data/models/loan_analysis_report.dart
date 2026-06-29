@@ -450,13 +450,27 @@ class MetricData {
   });
 
   factory MetricData.fromJson(Map<String, dynamic> json) {
+    final int codePoint = json['icon'] as int? ?? 0xe897;
+    IconData resolvedIcon;
+    if (codePoint == Icons.percent_rounded.codePoint) {
+      resolvedIcon = Icons.percent_rounded;
+    } else if (codePoint == Icons.payments_outlined.codePoint) {
+      resolvedIcon = Icons.payments_outlined;
+    } else if (codePoint == Icons.account_balance_wallet_outlined.codePoint) {
+      resolvedIcon = Icons.account_balance_wallet_outlined;
+    } else if (codePoint == Icons.warning_amber_rounded.codePoint) {
+      resolvedIcon = Icons.warning_amber_rounded;
+    } else {
+      resolvedIcon = Icons.help_outline;
+    }
+
     return MetricData(
       id: json['id']?.toString() ?? '',
       label: json['label']?.toString() ?? '',
       value: json['value']?.toString() ?? '',
       valueSuffix: json['valueSuffix']?.toString() ?? '',
       accent: Color(json['accent'] as int? ?? 0xFFC3C6D7),
-      icon: IconData(json['icon'] as int? ?? 0xe897, fontFamily: 'MaterialIcons'),
+      icon: resolvedIcon,
       secondaryLabel: json['secondaryLabel']?.toString() ?? '',
       detailTitle: json['detailTitle']?.toString() ?? '',
       detailBody: json['detailBody']?.toString() ?? '',

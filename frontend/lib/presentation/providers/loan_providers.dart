@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:loansense_ai/core/network/api_client.dart';
 import 'package:loansense_ai/data/repositories/loan_repository.dart';
@@ -95,20 +96,91 @@ final analysisProvider =
   return repo.fetchAnalysis(loanId);
 });
 
+class LoanHistoryFilters {
+  final String search;
+  final String? riskLevel; // 'safe', 'moderate', 'dangerous' or null
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final String sortBy; // 'upload_date', 'risk_score', 'lender_name'
+  final String order; // 'asc', 'desc'
+
+  const LoanHistoryFilters({
+    this.search = '',
+    this.riskLevel,
+    this.startDate,
+    this.endDate,
+    this.sortBy = 'upload_date',
+    this.order = 'desc',
+  });
+
+  LoanHistoryFilters copyWith({
+    String? search,
+    String? riskLevel,
+    bool clearRiskLevel = false,
+    DateTime? startDate,
+    bool clearStartDate = false,
+    DateTime? endDate,
+    bool clearEndDate = false,
+    String? sortBy,
+    String? order,
+  }) {
+    return LoanHistoryFilters(
+      search: search ?? this.search,
+      riskLevel: clearRiskLevel ? null : (riskLevel ?? this.riskLevel),
+      startDate: clearStartDate ? null : (startDate ?? this.startDate),
+      endDate: clearEndDate ? null : (endDate ?? this.endDate),
+      sortBy: sortBy ?? this.sortBy,
+      order: order ?? this.order,
+    );
+  }
+}
+
+final loanHistoryFiltersProvider = StateProvider<LoanHistoryFilters>((ref) {
+  return const LoanHistoryFilters();
+});
+
+final loanHistorySelectionModeProvider = StateProvider<bool>((ref) {
+  return false;
+});
+
+final loanHistorySelectionProvider = StateProvider<Set<String>>((ref) {
+  return {};
+});
+
 final loanHistoryProvider = FutureProvider<List<LoanHistoryItem>>((ref) async {
   final repo = ref.watch(loanRepositoryProvider);
-  return repo.fetchLoanHistory();
+  final filters = ref.watch(loanHistoryFiltersProvider);
+
+  String? startDateStr;
+  if (filters.startDate != null) {
+    startDateStr = "${filters.startDate!.year}-${filters.startDate!.month.toString().padLeft(2, '0')}-${filters.startDate!.day.toString().padLeft(2, '0')}";
+  }
+  String? endDateStr;
+  if (filters.endDate != null) {
+    endDateStr = "${filters.endDate!.year}-${filters.endDate!.month.toString().padLeft(2, '0')}-${filters.endDate!.day.toString().padLeft(2, '0')}";
+  }
+
+  return repo.fetchLoanHistory(
+    search: filters.search.isEmpty ? null : filters.search,
+    riskLevel: filters.riskLevel,
+    startDate: startDateStr,
+    endDate: endDateStr,
+    sortBy: filters.sortBy,
+    order: filters.order,
+  );
 });
 
 // --- Comparison State & Provider ---
 
 class ComparisonState {
   final bool isComparing;
+  final String? loadingMessage;
   final LoanComparisonReport? report;
   final String? errorMessage;
 
   ComparisonState({
     this.isComparing = false,
+    this.loadingMessage,
     this.report,
     this.errorMessage,
   });
@@ -116,20 +188,58 @@ class ComparisonState {
 
 class ComparisonNotifier extends StateNotifier<ComparisonState> {
   final LoanRepository _repository;
+  Timer? _loadingTimer;
 
   ComparisonNotifier(this._repository) : super(ComparisonState());
 
   void reset() {
+    _loadingTimer?.cancel();
     state = ComparisonState();
   }
 
+  @override
+  void dispose() {
+    _loadingTimer?.cancel();
+    super.dispose();
+  }
+
   Future<LoanComparisonReport> compare(String idA, String idB) async {
-    state = ComparisonState(isComparing: true);
+    _loadingTimer?.cancel();
+    final messages = [
+      "Uploading complete — processing documents...",
+      "Waiting for Loan A analysis to complete...",
+      "Waiting for Loan B analysis to complete...",
+      "Both loans ready — comparing agreements...",
+      "Analysing hidden clauses & penalty terms...",
+      "Calculating total borrowing cost...",
+      "Generating AI recommendation...",
+    ];
+    int messageIndex = 0;
+    
+    state = ComparisonState(
+      isComparing: true,
+      loadingMessage: messages[0],
+    );
+
+    _loadingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (messageIndex < messages.length - 1) {
+        messageIndex++;
+        if (state.isComparing) {
+          state = ComparisonState(
+            isComparing: true,
+            loadingMessage: messages[messageIndex],
+          );
+        }
+      }
+    });
+
     try {
       final resReport = await _repository.compareLoans(idA, idB);
+      _loadingTimer?.cancel();
       state = ComparisonState(report: resReport);
       return resReport;
     } catch (e) {
+      _loadingTimer?.cancel();
       state = ComparisonState(errorMessage: e.toString());
       rethrow;
     }
@@ -141,3 +251,58 @@ final comparisonProvider =
   final repo = ref.watch(loanRepositoryProvider);
   return ComparisonNotifier(repo);
 });
+
+// --- Export State & Provider ---
+
+class ExportState {
+  final bool isExporting;
+  final String? filePath;
+  final String? errorMessage;
+
+  const ExportState({
+    this.isExporting = false,
+    this.filePath,
+    this.errorMessage,
+  });
+
+  ExportState copyWith({
+    bool? isExporting,
+    String? filePath,
+    bool clearFilePath = false,
+    String? errorMessage,
+    bool clearError = false,
+  }) {
+    return ExportState(
+      isExporting: isExporting ?? this.isExporting,
+      filePath: clearFilePath ? null : (filePath ?? this.filePath),
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+    );
+  }
+}
+
+class ExportNotifier extends StateNotifier<ExportState> {
+  final LoanRepository _repository;
+
+  ExportNotifier(this._repository) : super(const ExportState());
+
+  void reset() => state = const ExportState();
+
+  Future<String?> exportPdf(String loanId, {String? lenderName}) async {
+    state = const ExportState(isExporting: true);
+    try {
+      final path = await _repository.exportLoanAsPdf(loanId, lenderName: lenderName);
+      state = ExportState(filePath: path);
+      return path;
+    } catch (e) {
+      state = ExportState(errorMessage: e.toString());
+      return null;
+    }
+  }
+}
+
+final exportProvider =
+    StateNotifierProvider.autoDispose<ExportNotifier, ExportState>((ref) {
+  final repo = ref.watch(loanRepositoryProvider);
+  return ExportNotifier(repo);
+});
+

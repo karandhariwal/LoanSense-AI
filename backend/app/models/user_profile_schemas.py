@@ -262,3 +262,15 @@ class DeleteDocumentsResponse(BaseModel):
 
     deleted_count: int = Field(..., description="Number of documents deleted", ge=0)
     message: str = Field(..., description="Human-readable result message")
+
+
+class BulkDeleteDocumentsRequest(BaseModel):
+    """Request payload containing a list of document IDs to delete."""
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        alias_generator=_camel,
+    )
+
+    document_ids: list[str] = Field(..., description="List of document UUID strings to delete")
+

@@ -5,10 +5,14 @@ import 'package:loansense_ai/core/config/app_config.dart';
 
 class ApiClient {
   late final Dio _dio;
+  late final List<String> _candidateBaseUrls;
+  bool _baseUrlResolved = false;
 
   ApiClient({String? baseUrl, List<Interceptor>? interceptors}) {
-    // Use provided baseUrl, or fall back to BuildConfig API URL
-    final url = baseUrl ?? BuildConfig.apiUrl;
+    _candidateBaseUrls = List.unmodifiable(
+      baseUrl != null ? [baseUrl] : BuildConfig.apiUrls,
+    );
+    final url = _candidateBaseUrls.first;
     
     _dio = Dio(
       BaseOptions(
@@ -26,6 +30,8 @@ class ApiClient {
         },
       ),
     );
+
+    developer.log('API base URL candidates: $_candidateBaseUrls');
 
     // Add logging interceptor by default (only in development)
     if (AppConfig.enableApiLogging || BuildConfig.isDevelopment) {
@@ -71,6 +77,7 @@ class ApiClient {
     CancelToken? cancelToken,
   }) async {
     try {
+      await _ensureReachableBaseUrl();
       return await _dio.get<T>(
         path,
         queryParameters: queryParameters,
@@ -93,6 +100,7 @@ class ApiClient {
     void Function(int, int)? onSendProgress,
   }) async {
     try {
+      await _ensureReachableBaseUrl();
       return await _dio.post<T>(
         path,
         data: data,
@@ -116,6 +124,7 @@ class ApiClient {
     CancelToken? cancelToken,
   }) async {
     try {
+      await _ensureReachableBaseUrl();
       return await _dio.patch<T>(
         path,
         data: data,
@@ -138,6 +147,7 @@ class ApiClient {
     CancelToken? cancelToken,
   }) async {
     try {
+      await _ensureReachableBaseUrl();
       return await _dio.delete<T>(
         path,
         data: data,
@@ -152,13 +162,69 @@ class ApiClient {
     }
   }
 
+  Future<void> _ensureReachableBaseUrl() async {
+    if (_baseUrlResolved || _candidateBaseUrls.length <= 1) {
+      _baseUrlResolved = true;
+      return;
+    }
+
+    for (final candidate in _candidateBaseUrls) {
+      final reachable = await _isBaseUrlReachable(candidate);
+      if (!reachable) {
+        continue;
+      }
+
+      if (_dio.options.baseUrl != candidate) {
+        developer.log(
+          'Switching API base URL from ${_dio.options.baseUrl} to $candidate',
+        );
+        _dio.options.baseUrl = candidate;
+      }
+      _baseUrlResolved = true;
+      return;
+    }
+
+    // All probes failed — fall back to 127.0.0.1 (correct for adb reverse) and
+    // mark resolved so we don't probe again on every subsequent request.
+    // The actual request will surface a proper connection error to the user.
+    const fallback = 'http://127.0.0.1:8000';
+    developer.log(
+      'All URL probes failed. Falling back to $fallback. '
+      'If on a physical device, ensure adb reverse tcp:8000 tcp:8000 is active.',
+    );
+    _dio.options.baseUrl = fallback;
+    _baseUrlResolved = true;
+  }
+
+  Future<bool> _isBaseUrlReachable(String baseUrl) async {
+    final probe = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 4),
+        receiveTimeout: const Duration(seconds: 4),
+        sendTimeout: const Duration(seconds: 4),
+        validateStatus: (status) => status != null && status < 500,
+      ),
+    );
+
+    try {
+      final response = await probe.get<dynamic>('/');
+      return response.statusCode != null && response.statusCode! < 500;
+    } on DioException catch (e) {
+      developer.log('API probe failed for $baseUrl: ${e.message}');
+      return false;
+    } finally {
+      probe.close(force: true);
+    }
+  }
+
   Exception _handleDioError(DioException e) {
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.sendTimeout ||
         e.type == DioExceptionType.receiveTimeout ||
         e.type == DioExceptionType.connectionError) {
       return NetworkException(
-        'Connection timeout or network failure. Verify the backend is running and the app is using the correct host. For a real Android device over USB, run adb reverse tcp:8000 tcp:8000. For an Android emulator, use 10.0.2.2:8000.',
+        'Connection timeout or network failure. Verify the backend is running. The app tried these local hosts: ${_candidateBaseUrls.join(', ')}. For a real Android device over USB, run adb reverse tcp:8000 tcp:8000. You can also set --dart-define=API_BASE_URL=http://YOUR_PC_LOCAL_IP:8000.',
         originalError: e,
       );
     }

@@ -103,8 +103,7 @@ def test_celery_task_success(mock_extraction_class, mock_pdf_proc, db_session):
     db_session.commit()
 
     # Setup Mocks
-    mock_pdf_proc.process_and_store.return_value = 10
-    mock_pdf_proc.extract_text.return_value = "This is dummy loan agreement text."
+    mock_pdf_proc.process_and_extract.return_value = ("This is dummy loan agreement text.", 10)
     
     # Mock LoanExtractionService and return value
     mock_service_instance = MagicMock()
@@ -199,7 +198,7 @@ def test_celery_task_failure(mock_pdf_proc, db_session):
     db_session.commit()
 
     # Setup Mock to raise error
-    mock_pdf_proc.process_and_store.side_effect = RuntimeError("PDF Processing Error")
+    mock_pdf_proc.process_and_extract.side_effect = RuntimeError("PDF Processing Error")
 
     # Patch DB SessionLocal, task attributes, and run task using Celery context helpers
     process_loan_document_task.push_request(retries=3)
@@ -210,7 +209,7 @@ def test_celery_task_failure(mock_pdf_proc, db_session):
              patch.object(process_loan_document_task, "max_retries", 3), \
              patch.object(process_loan_document_task, "retry", side_effect=Exception("Celery Retry Triggered")):
             
-            with pytest.raises(Exception, match="Celery Retry Triggered"):
+            with pytest.raises(Exception, match="PDF Processing Error"):
                 process_loan_document_task.run(loan_id_str, file_path)
     finally:
         process_loan_document_task.pop_request()

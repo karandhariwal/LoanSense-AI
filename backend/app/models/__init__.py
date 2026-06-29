@@ -3,7 +3,7 @@ from .risk_clause import RiskLevel, RiskCategory, RiskClause
 from .loan_score import SafetyRating, LoanSafetyScore
 from .chat_citation import CitationType, ChatCitation, RAGResponse
 from .loan_analysis import LoanAnalysisResponse
-from .loan_comparison import LoanComparisonResult, LoanComparison
+from .loan_comparison import LoanComparisonResponse, LoanComparison, LoanComparisonResult
 from .api_schemas import (
     AnalysisResponse,
     RisksResponse,
@@ -21,6 +21,7 @@ from .user_profile_schemas import (
     UpdateUserSettingsRequest,
     LogoutResponse,
     DeleteDocumentsResponse,
+    BulkDeleteDocumentsRequest,
 )
 
 __all__ = [
@@ -34,8 +35,9 @@ __all__ = [
     "ChatCitation",
     "RAGResponse",
     "LoanAnalysisResponse",
-    "LoanComparisonResult",
+    "LoanComparisonResponse",
     "LoanComparison",
+    "LoanComparisonResult",
     "AnalysisResponse",
     "RisksResponse",
     "CompareRequest",
@@ -51,4 +53,5 @@ __all__ = [
     "UpdateUserSettingsRequest",
     "LogoutResponse",
     "DeleteDocumentsResponse",
+    "BulkDeleteDocumentsRequest",
 ]

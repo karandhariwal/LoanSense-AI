@@ -1,8 +1,8 @@
 import uuid
 from decimal import Decimal
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
-from sqlalchemy import String, Numeric, Enum as SqlEnum, DateTime, Text, JSON, TypeDecorator, CHAR
+from typing import Any, Dict, Optional, List
+from sqlalchemy import String, Numeric, Enum as SqlEnum, DateTime, Text, JSON, TypeDecorator, CHAR, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
@@ -116,3 +116,46 @@ class LoanReport(Base):
 
     def __repr__(self) -> str:
         return f"<LoanReport loan_id={self.loan_id} lender={self.lender_name} status={self.status}>"
+
+
+class ChatMessage(Base):
+    """
+    SQLAlchemy model representing a persistent chat message history record.
+    """
+    __tablename__ = "chat_messages"
+
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        UUIDType,
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    loan_id: Mapped[uuid.UUID] = mapped_column(
+        UUIDType,
+        ForeignKey("loan_reports.loan_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    role: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False
+    )
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False
+    )
+    citations: Mapped[Optional[List[Any]]] = mapped_column(
+        JSON,
+        nullable=True
+    )
+    confidence_score: Mapped[Optional[float]] = mapped_column(
+        nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True
+    )
+
+    def __repr__(self) -> str:
+        return f"<ChatMessage message_id={self.message_id} loan_id={self.loan_id} role={self.role}>"

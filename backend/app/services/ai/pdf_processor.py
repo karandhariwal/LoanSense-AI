@@ -17,8 +17,9 @@ MAX_RISK_CHARS = 16000       # ~13 pages — risk clauses can appear later
 class PDFProcessor:
     def __init__(self):
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
+            chunk_size=1200,
+            chunk_overlap=300,
+            separators=["\n\nSection", "\n\nClause", "\n\n", "\n", ". ", " ", ""],
             length_function=len,
         )
         self.embeddings = NVIDIAEmbeddings(
