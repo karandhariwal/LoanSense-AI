@@ -11,8 +11,9 @@ from app.celery_app import celery_app
 from app.database.session import SessionLocal
 from app.database.models import LoanReport
 from app.database.enums import ProcessingStatus
+from app.models.loan_analysis import CURRENT_ANALYSIS_VERSION
 from app.services.ai.pdf_processor import pdf_processor
-from app.services.ai.extraction_service import LoanExtractionService
+from app.services.ai.extraction_service import LoanExtractionService, InvalidDocumentTypeError, EmptyDocumentError
 from app.services.cache_service import cache
 
 logger = get_task_logger(__name__)
@@ -40,6 +41,16 @@ def calculate_file_hash(file_path: str) -> str:
         for byte_block in iter(lambda: f.read(4096), b""):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
+
+
+def _analysis_version(analysis_json) -> int:
+    """Read the pipeline version from a stored analysis payload."""
+    if not isinstance(analysis_json, dict):
+        return 0
+    try:
+        return int(analysis_json.get("analysis_version", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
 
 @celery_app.task(
     bind=True,
@@ -80,6 +91,52 @@ def process_loan_document_task(self, loan_id: str, file_path: str):
         file_hash = calculate_file_hash(file_path)
         report.file_hash = file_hash
         db.commit()
+
+        # ── Hash-based deduplication ───────────────────────────────────────────
+        # Check if another COMPLETED report already exists for the same file.
+        # If so, copy its analysis_json directly and skip the full AI pipeline.
+        # This guarantees that re-uploading the same PDF always produces the
+        # exact same score, summary, and risk results.
+        existing_report = None
+        if file_hash:
+            existing_report = (
+                db.query(LoanReport)
+                .filter(
+                    LoanReport.file_hash == file_hash,
+                    LoanReport.status == ProcessingStatus.COMPLETED,
+                    LoanReport.loan_id != loan_uuid,  # exclude the current report
+                    LoanReport.analysis_json.isnot(None)
+                )
+                .order_by(LoanReport.created_at.desc())
+                .first()
+            )
+
+        if existing_report and _analysis_version(existing_report.analysis_json) >= CURRENT_ANALYSIS_VERSION:
+            logger.info(
+                f"Duplicate PDF detected (hash={file_hash[:12]}...). "
+                f"Reusing existing analysis from loan_id={existing_report.loan_id} "
+                f"for loan_id={loan_id}. Skipping AI pipeline."
+            )
+            report.lender_name = existing_report.lender_name
+            report.loan_type = existing_report.loan_type
+            report.principal_amount = existing_report.principal_amount
+            report.analysis_json = existing_report.analysis_json
+            report.document_name = os.path.basename(file_path)
+            report.status = ProcessingStatus.COMPLETED
+            report.processing_duration = time.time() - start_time
+            report.error_message = None
+            report.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            logger.info(f"Duplicate result saved for loan_id={loan_id}")
+
+            # Seed cache for instant chat responses
+            async def _seed_cache_dedup():
+                await cache.delete_loan(loan_id)
+                await cache.set_analysis(loan_id, report.analysis_json)
+            asyncio.run(_seed_cache_dedup())
+
+            return f"Success (deduplicated): loan_id={loan_id} reused existing analysis"
+        # ──────────────────────────────────────────────────────────────────────
 
         # 2. Extract text AND store RAG chunks in a single PDF pass
         # (process_and_extract opens the file once, builds chunks + full text together)
@@ -125,6 +182,20 @@ def process_loan_document_task(self, loan_id: str, file_path: str):
         # ──────────────────────────────────────────────────────────────────
 
         return f"Success: loan_id={loan_id} processed"
+
+    except (InvalidDocumentTypeError, EmptyDocumentError) as exc:
+        db.rollback()
+        logger.error(f"Validation/Classification failure for loan_id={loan_id}: {exc}")
+        try:
+            if report:
+                report.status = ProcessingStatus.FAILED
+                report.error_message = str(exc)
+                report.processing_duration = time.time() - start_time
+                report.updated_at = datetime.now(timezone.utc)
+                db.commit()
+        except Exception as db_exc:
+            logger.error(f"Failed to write FAILED status to database: {db_exc}")
+        return f"Failure: {str(exc)}"
 
     except Exception as exc:
         db.rollback()

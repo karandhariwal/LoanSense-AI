@@ -1,3 +1,4 @@
+import hashlib
 import os
 import uuid
 import logging
@@ -13,6 +14,7 @@ from app.database.base import Base
 from app.database.models import LoanReport, ChatMessage  # noqa: F401 - registers models with Base
 from app.database.user_models import UserProfile, UserSettings  # noqa: F401 - registers models with Base
 from app.database.enums import ProcessingStatus
+from app.models.loan_analysis import CURRENT_ANALYSIS_VERSION
 from app.tasks import process_loan_document_task
 
 # Import API Routers
@@ -27,6 +29,21 @@ from app.api.export import router as export_router
 
 # Configure logger
 logger = logging.getLogger(__name__)
+
+
+def _hash_upload_bytes(file_bytes: bytes) -> str:
+    """Return a stable SHA-256 hash for uploaded document bytes."""
+    return hashlib.sha256(file_bytes).hexdigest()
+
+
+def _analysis_version(analysis_json) -> int:
+    """Return the version marker stored in a persisted analysis payload."""
+    if not isinstance(analysis_json, dict):
+        return 0
+    try:
+        return int(analysis_json.get("analysis_version", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -134,19 +151,53 @@ async def upload_loan(
     db: Session = Depends(get_db)
 ):
     logger.info(f"Upload requested for file: {file.filename}")
-    if not file.filename.endswith('.pdf'):
+    if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
-    
+
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    file_hash = _hash_upload_bytes(file_bytes)
+    existing_report = (
+        db.query(LoanReport)
+        .filter(
+            LoanReport.file_hash == file_hash,
+            LoanReport.status.in_([ProcessingStatus.PENDING, ProcessingStatus.PROCESSING, ProcessingStatus.COMPLETED]),
+        )
+        .order_by(LoanReport.created_at.desc())
+        .first()
+    )
+    if existing_report and existing_report.status == ProcessingStatus.COMPLETED:
+        if _analysis_version(existing_report.analysis_json) < CURRENT_ANALYSIS_VERSION:
+            logger.info(
+                "Ignoring legacy completed analysis for hash=%s because it predates analysis version %s.",
+                file_hash[:12],
+                CURRENT_ANALYSIS_VERSION,
+            )
+            existing_report = None
+    if existing_report:
+        logger.info(
+            "Duplicate upload detected for hash=%s. Reusing loan_id=%s with status=%s.",
+            file_hash[:12],
+            existing_report.loan_id,
+            existing_report.status.value,
+        )
+        return {
+            "loan_id": str(existing_report.loan_id),
+            "status": existing_report.status.value,
+        }
+
     loan_id_str = str(uuid.uuid4())
     loan_uuid = uuid.UUID(loan_id_str)
     file_path = os.path.join(settings.UPLOAD_DIR, f"{loan_id_str}.pdf")
-    
+
     # Ensure upload directory exists
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    
+
     try:
         with open(file_path, "wb") as buffer:
-            buffer.write(await file.read())
+            buffer.write(file_bytes)
         logger.info(f"File saved to path: {file_path}")
     except Exception as e:
         logger.error(f"Failed to save uploaded file: {e}")
@@ -158,7 +209,8 @@ async def upload_loan(
             loan_id=loan_uuid,
             status=ProcessingStatus.PENDING,
             document_name=file.filename,
-            file_path=file_path
+            file_path=file_path,
+            file_hash=file_hash,
         )
         db.add(report)
         db.commit()

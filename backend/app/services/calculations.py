@@ -156,39 +156,99 @@ class LoanCalculator:
         base_score: Optional[float] = None
     ) -> float:
         """
-        Heuristic calculator to compute a rule-based safety score.
-        Deducts points based on risk levels of clauses using configurable weights:
-          HIGH risk: configured penalty (default -1.5)
-          MEDIUM risk: configured penalty (default -0.75)
-          LOW risk: configured penalty (default -0.25)
-        Caps the final score between min and max configured values.
+        Deterministic safety score calculator.
+
+        Scoring model:
+          1. Each risk clause has a base penalty by severity:
+               HIGH   → -1.5  (configurable via RISK_PENALTY_HIGH)
+               MEDIUM → -0.75 (configurable via RISK_PENALTY_MEDIUM)
+               LOW    → -0.25 (configurable via RISK_PENALTY_LOW)
+
+          2. The base penalty is multiplied by a category severity factor:
+               Legal Discretion  → ×1.5  (unilateral term changes / loan recall)
+               Interest Rate Risk → ×1.3  (benchmark manipulation)
+               Repayment Risk    → ×1.2  (amortization tricks)
+               Hidden Charges    → ×1.1  (vague fee clauses)
+               Penalty Charges   → ×1.0  (standard)
+               Foreclosure Risk  → ×0.9  (prepayment lock-in)
+               Insurance Risk    → ×0.8  (mandatory insurance)
+
+          3. Final score = base_score + sum(penalty × category_multiplier)
+             Clamped to [minimum_score, base_score].
+
+        This formula is fully deterministic: same document → same risks → same score.
         """
+        # Category severity multipliers
+        CATEGORY_MULTIPLIERS = {
+            "legal discretion": 1.5,
+            "interest rate risk": 1.3,
+            "repayment risk": 1.2,
+            "hidden charges": 1.1,
+            "penalty charges": 1.0,
+            "foreclosure risk": 0.9,
+            "insurance risk": 0.8,
+        }
+
         # Load configuration
         weights = config_service.risk_weights
         if base_score is None:
             base_score = weights.base_score
-        
+
         score = base_score
         for risk in risks:
-            # risk can be a dictionary or a RiskClause object
-            risk_level = risk.get("risk_level") if isinstance(risk, dict) else getattr(risk, "risk_level", None)
+            # Support both dict and RiskClause object
+            risk_level = (
+                risk.get("risk_level") if isinstance(risk, dict)
+                else getattr(risk, "risk_level", None)
+            )
+            category = (
+                risk.get("category", "") if isinstance(risk, dict)
+                else getattr(risk, "category", "")
+            )
             if not risk_level:
                 continue
-            
-            # RiskLevel Enum comparison (handle string or Enum)
+
             level_str = risk_level.value if hasattr(risk_level, "value") else str(risk_level)
             level_upper = level_str.upper()
+            category_lower = (category or "").lower().strip()
 
-            # Use configuration-driven penalty weights instead of hardcoded values
+            # Base penalty by severity level
             if level_upper == "HIGH":
-                score += weights.high_risk_penalty  # Usually negative
+                base_penalty = weights.high_risk_penalty      # negative, e.g. -1.5
             elif level_upper == "MEDIUM":
-                score += weights.medium_risk_penalty  # Usually negative
+                base_penalty = weights.medium_risk_penalty    # negative, e.g. -0.75
             elif level_upper == "LOW":
-                score += weights.low_risk_penalty  # Usually negative
+                base_penalty = weights.low_risk_penalty       # negative, e.g. -0.25
+            else:
+                continue
 
-        # Cap between configured min and max
+            # Apply category severity multiplier
+            multiplier = CATEGORY_MULTIPLIERS.get(category_lower, 1.0)
+            score += base_penalty * multiplier
+
+        # Clamp between minimum and base (maximum)
         return max(weights.minimum_score, min(weights.base_score, round(score, 1)))
+
+    @staticmethod
+    def get_safety_rating_label(score: float) -> str:
+        """
+        Return the safety rating label for a given score using the same
+        thresholds as SafetyScorer._determine_correct_rating().
+        This ensures consistent labels across analysis and comparison screens.
+
+        Returns: 'Excellent', 'Good', 'Moderate', 'Risky', or 'High Risk'
+        """
+        thresholds = config_service.safety_thresholds
+        if thresholds.excellent_min <= score <= thresholds.excellent_max:
+            return "Excellent"
+        elif thresholds.good_min <= score < thresholds.good_max:
+            return "Good"
+        elif thresholds.moderate_min <= score < thresholds.moderate_max:
+            return "Moderate"
+        elif thresholds.risky_min <= score < thresholds.risky_max:
+            return "Risky"
+        else:
+            return "High Risk"
 
 # Let's import numpy to check for NaN in numpy_financial results
 import numpy as np

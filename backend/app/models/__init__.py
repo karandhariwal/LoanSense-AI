@@ -4,6 +4,7 @@ from .loan_score import SafetyRating, LoanSafetyScore
 from .chat_citation import CitationType, ChatCitation, RAGResponse
 from .loan_analysis import LoanAnalysisResponse
 from .loan_comparison import LoanComparisonResponse, LoanComparison, LoanComparisonResult
+from .document_classification import DocumentClassification
 from .api_schemas import (
     AnalysisResponse,
     RisksResponse,
@@ -34,6 +35,7 @@ __all__ = [
     "CitationType",
     "ChatCitation",
     "RAGResponse",
+    "DocumentClassification",
     "LoanAnalysisResponse",
     "LoanComparisonResponse",
     "LoanComparison",

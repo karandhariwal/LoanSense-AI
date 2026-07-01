@@ -165,7 +165,7 @@ LOAN_SUMMARY_PROMPT = ChatPromptTemplate.from_messages([
 # =====================================================================
 
 SAFETY_SCORE_SYSTEM_PROMPT = """You are the Chief Risk Officer at LoanSense AI.
-Your task is to evaluate the safety and borrower-friendliness of a loan agreement and generate a structured safety score and rating.
+Your task is to evaluate the safety and borrower-friendliness of a loan agreement and provide a qualitative analysis.
 
 EVALUATION PARAMETERS:
 1. **Transparency**: Are interest rates, margins, benchmark linkages, and fees clearly spelled out, or are they hidden in fine print or vague clauses?
@@ -175,30 +175,26 @@ EVALUATION PARAMETERS:
 5. **Lender Discretion**: Does the lender reserve excessive unilateral rights to change terms, recall the loan on short notice, or mandate restrictive legal jurisdiction?
 6. **Interest Structure**: Is the floating rate linked to an objective, regulated external benchmark (like RBI Repo Rate or MCLR) or an internal bank rate that can be manipulated?
 
-STRICT RATING ALIGNMENT RULES:
-You must select the qualitative `rating` that corresponds exactly to the numerical `score` according to the following ranges:
-- **Excellent**: Score is between 8.5 and 10.0 (inclusive) -> `8.5 <= score <= 10.0`
-- **Good**: Score is between 7.0 (inclusive) and 8.5 (exclusive) -> `7.0 <= score < 8.5`
-- **Moderate**: Score is between 5.0 (inclusive) and 7.0 (exclusive) -> `5.0 <= score < 7.0`
-- **Risky**: Score is between 3.0 (inclusive) and 5.0 (exclusive) -> `3.0 <= score < 5.0`
-- **High Risk**: Score is between 0.0 (inclusive) and 3.0 (exclusive) -> `0.0 <= score < 3.0`
-
-Failure to align the rating with the score range will cause Pydantic model validation to fail.
+IMPORTANT — SCORE AND RATING FIELDS:
+- Set `score` to exactly `0.0` — the numeric score is computed by a separate deterministic engine and your value will be replaced.
+- Set `rating` to exactly `"Moderate"` — the rating is also reassigned by the deterministic engine after your response.
+- Focus all your analytical effort on producing high-quality `strengths`, `weaknesses`, and `explanation` fields.
 
 JSON OUTPUT STRUCTURE:
 Your output must be a single JSON object containing:
-- `score`: A float between 0.0 and 10.0.
-- `rating`: Exactly one of: "Excellent", "Good", "Moderate", "Risky", "High Risk".
-- `strengths`: A list of strings listing borrower-friendly terms (e.g., ["Zero prepayment charges after 12 months", "Floating rate tied directly to RBI Repo Rate"]).
-- `weaknesses`: A list of strings listing punitive or risky terms (e.g., ["Excessive late payment penalty of 24% per year", "Lender can recall the loan at 7 days notice"]).
-- `explanation`: A concise paragraph explaining the evaluation, strengths, weaknesses, and rationale behind the score.
+- `score`: Set to `0.0` (placeholder — will be overridden by the scoring engine).
+- `rating`: Set to `"Moderate"` (placeholder — will be overridden by the scoring engine).
+- `strengths`: A list of strings listing borrower-friendly terms found in the agreement (e.g., ["Zero prepayment charges after 12 months", "Floating rate tied directly to RBI Repo Rate"]). Be specific and cite actual clauses.
+- `weaknesses`: A list of strings listing punitive or risky terms found in the agreement (e.g., ["Excessive late payment penalty of 24% per year", "Lender can recall the loan at 7 days notice"]). Be specific and cite actual clauses.
+- `explanation`: A concise paragraph (3-5 sentences) explaining the key findings — what makes this loan safe or risky for the borrower, and the most critical clauses to be aware of.
 
 ANTI-HALLUCINATION SAFEGUARDS:
 - Ensure strengths and weaknesses refer directly to clauses present in the agreement.
+- Do not invent clauses or terms not present in the document.
 - Return ONLY valid JSON matching the structure. Do not include markdown code blocks or explanations outside the JSON object.
 """
 
-SAFETY_SCORE_HUMAN_PROMPT = """Analyze the loan details and calculate the safety score and rating.
+SAFETY_SCORE_HUMAN_PROMPT = """Analyze the loan details and provide a qualitative safety evaluation.
 
 [DOCUMENT TEXT]
 {document_context}
@@ -212,10 +208,47 @@ SAFETY_SCORE_HUMAN_PROMPT = """Analyze the loan details and calculate the safety
 {detected_risks}
 [END OF DETECTED RISKS]
 
-Generate the JSON response conforming to the LoanSafetyScore schema, ensuring strict adherence to the rating-to-score ranges.
+Generate the JSON response with `score: 0.0` and `rating: "Moderate"` as placeholders, and focus on providing detailed, accurate `strengths`, `weaknesses`, and `explanation` based strictly on the document content.
 """
 
 LOAN_SAFETY_SCORE_PROMPT = ChatPromptTemplate.from_messages([
     ("system", SAFETY_SCORE_SYSTEM_PROMPT),
     ("human", SAFETY_SCORE_HUMAN_PROMPT)
+])
+
+
+# =====================================================================
+# 5. DOCUMENT CLASSIFICATION PROMPT
+# =====================================================================
+
+CLASSIFICATION_SYSTEM_PROMPT = """You are a professional financial document classifier.
+Your task is to analyze the provided document text and determine if it is a valid financial or loan-related document.
+
+Valid financial or loan-related documents include:
+- Loan agreements, loan contracts, or loan offer/sanction letters.
+- Bank statements, financial ledgers, or account transaction records.
+- Mortgage agreements or home loan offers.
+- Credit card terms of service or credit facility agreements.
+- Any official document outlining lending, borrowing, interest rates, principal amounts, repayment schedules, or bank statement transactions.
+
+Invalid documents include:
+- Resumes, CVs, portfolios, job applications.
+- Cover letters, motivation letters, application letters.
+- Personal letters, personal emails, diaries.
+- Identification documents (driver's licenses, passports, identity cards) unless they are part of a larger bank statement/loan agreement package.
+- Books, articles, recipes, academic papers, programming code, or other unrelated texts.
+
+Analyze the provided document context carefully. Classify the document and return a JSON matching the requested schema.
+"""
+
+CLASSIFICATION_HUMAN_PROMPT = """Analyze the following document and classify it:
+
+[DOCUMENT CONTENT]
+{document_context}
+[DOCUMENT CONTENT END]
+"""
+
+DOCUMENT_CLASSIFICATION_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", CLASSIFICATION_SYSTEM_PROMPT),
+    ("human", CLASSIFICATION_HUMAN_PROMPT)
 ])

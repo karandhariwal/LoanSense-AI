@@ -6,6 +6,7 @@ from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langchain_core.prompts import ChatPromptTemplate
 from app.core.config import settings
 from app.models.loan_analysis import LoanAnalysisResponse
+from app.services.calculations import LoanCalculator
 from app.models.loan_comparison import (
     LoanComparisonResponse,
     RecommendedLoanInfo,
@@ -85,7 +86,7 @@ class LLMComparisonOutput(BaseModel):
     confidence_score: float = Field(..., description="AI confidence score between 0.0 and 1.0")
 
 class LoanComparisonService:
-    def __init__(self, llm=None, timeout_seconds: float = 60.0):
+    def __init__(self, llm=None, timeout_seconds: float = 180.0):
         self.llm = llm
         self.timeout_seconds = timeout_seconds
         self.structured_llm = None
@@ -221,19 +222,35 @@ Task: Compare and analyze the agreements. Fill out ALL required fields in the sc
                 chain.ainvoke({"details": prompt_context}),
                 timeout=self.timeout_seconds
             )
-            logger.info("AI loan comparison executed successfully.")
-            ai_data = comparison_ai
+            if comparison_ai is None:
+                logger.warning("AI loan comparison returned None (model failed to produce structured output). Executing heuristic fallback...")
+                ai_data = self._generate_fallback(loan_a, loan_b, financial_better)
+            else:
+                logger.info("AI loan comparison executed successfully.")
+                ai_data = comparison_ai
+        except asyncio.TimeoutError:
+            logger.error(f"AI loan comparison timed out after {self.timeout_seconds}s. Executing heuristic fallback...")
+            ai_data = self._generate_fallback(loan_a, loan_b, financial_better)
         except Exception as e:
-            logger.error(f"AI loan comparison failed or timed out: {e}. Executing heuristic fallback...")
+            logger.error(f"AI loan comparison failed: {e}. Executing heuristic fallback...")
             ai_data = self._generate_fallback(loan_a, loan_b, financial_better)
 
         # Build Response structure
         rec_loan_val = "Loan A" if ai_data.better_loan.lower().endswith("a") else ("Loan B" if ai_data.better_loan.lower().endswith("b") else "None")
         rec_lender = lender_a if rec_loan_val == "Loan A" else (lender_b if rec_loan_val == "Loan B" else "None")
 
+        # ── Deterministic winner score ─────────────────────────────────────────
+        # Use the actual safety score from analysis — never the LLM's subjective
+        # recommendation_score — so the score is identical to the analysis screen.
+        winner_safety_score = (
+            loan_a.loan_score.score if rec_loan_val == "Loan A"
+            else loan_b.loan_score.score
+        )
+        # ──────────────────────────────────────────────────────────────────────
+
         rec_info = RecommendedLoanInfo(
             lender_name=rec_lender,
-            recommendation_score=ai_data.recommendation_score,
+            recommendation_score=round(winner_safety_score, 1),
             recommendation_reason=ai_data.recommendation_reason,
             confidence_score=ai_data.confidence_score
         )
@@ -366,26 +383,23 @@ Task: Compare and analyze the agreements. Fill out ALL required fields in the sc
             ),
         )
 
-        def classify_score(score: float) -> str:
-            if score >= 7.5:
-                return "Low"
-            elif score >= 5.0:
-                return "Medium"
-            else:
-                return "High"
-
+        # ── Consistent loan scores using analysis safety scores ────────────────
+        # Use the SAME scores that analysis computed (rule-based, deterministic).
+        # Use LoanCalculator.get_safety_rating_label() so the label matches
+        # analysis screen exactly (Excellent / Good / Moderate / Risky / High Risk).
         loan_scores = LoanScores(
             loan_a=LoanScoreInfo(
                 score=loan_a.loan_score.score,
-                rating=classify_score(loan_a.loan_score.score),
+                rating=LoanCalculator.get_safety_rating_label(loan_a.loan_score.score),
                 explanation=loan_a.loan_score.explanation
             ),
             loan_b=LoanScoreInfo(
                 score=loan_b.loan_score.score,
-                rating=classify_score(loan_b.loan_score.score),
+                rating=LoanCalculator.get_safety_rating_label(loan_b.loan_score.score),
                 explanation=loan_b.loan_score.explanation
             )
         )
+        # ──────────────────────────────────────────────────────────────────────
 
         reasons = [
             AIRecommendationReasonItem(
@@ -459,9 +473,18 @@ Task: Compare and analyze the agreements. Fill out ALL required fields in the sc
             }
         )
 
+        # ── Deterministic final decision score ────────────────────────────────
+        # overall_score = safety score of the recommended loan (same as analysis).
+        # This eliminates the LLM's subjective recommendation_score entirely.
+        final_overall_score = (
+            loan_a.loan_score.score if rec_loan_val == "Loan A"
+            else loan_b.loan_score.score
+        )
+        # ──────────────────────────────────────────────────────────────────────
+
         final_dec = FinalDecisionCard(
             recommended_loan=ai_data.better_loan,
-            overall_score=ai_data.recommendation_score,
+            overall_score=round(final_overall_score, 1),
             confidence=ai_data.confidence_score,
             key_reasons=ai_data.final_key_reasons,
             potential_concerns=ai_data.final_potential_concerns,

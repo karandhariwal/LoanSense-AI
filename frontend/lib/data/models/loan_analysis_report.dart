@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class LoanAnalysisReport {
@@ -125,6 +126,10 @@ class LoanAnalysisReport {
     required double fileSizeMb,
     String? loanId,
   }) {
+    if (kReleaseMode) {
+      throw StateError('Mock loan reports are disabled in release builds.');
+    }
+
     final cleanLoanId = loanId ?? "LNS-${(fileName.hashCode.abs() % 900000) + 100000}";
     final lowerName = fileName.toLowerCase();
 

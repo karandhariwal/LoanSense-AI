@@ -13,12 +13,13 @@ from app.models.loan_metadata import LoanMetadata
 from app.models.risk_clause import RiskClause
 from app.models.loan_score import LoanSafetyScore, SafetyRating
 from app.models.loan_analysis import LoanAnalysisResponse
+from app.models import DocumentClassification
 
 from app.services.calculations import LoanCalculator
 from app.services.ai.risk_detector import RiskDetector
 from app.services.ai.summary_generator import SummaryGenerator
 from app.services.ai.safety_scorer import SafetyScorer
-from app.services.ai.prompt_templates import LOAN_METADATA_EXTRACTION_PROMPT
+from app.services.ai.prompt_templates import LOAN_METADATA_EXTRACTION_PROMPT, DOCUMENT_CLASSIFICATION_PROMPT
 from app.services.ai.pdf_processor import MAX_METADATA_CHARS, MAX_RISK_CHARS
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,10 @@ class ExtractionServiceError(Exception):
 
 class EmptyDocumentError(ExtractionServiceError):
     """Raised when the document text input is empty."""
+    pass
+
+class InvalidDocumentTypeError(ExtractionServiceError):
+    """Raised when the document is not a valid loan or financial document."""
     pass
 
 class LLMTimeoutError(ExtractionServiceError):
@@ -83,6 +88,50 @@ class LoanExtractionService:
         self.metadata_llm = self.llm.with_structured_output(LoanMetadata)
         self.metadata_chain = LOAN_METADATA_EXTRACTION_PROMPT | self.metadata_llm
 
+        # Initialize Classification chain
+        self.classification_llm = self.llm.with_structured_output(DocumentClassification)
+        self.classification_chain = DOCUMENT_CLASSIFICATION_PROMPT | self.classification_llm
+
+    def _looks_like_financial_document(self, text: str) -> bool:
+        """
+        Fast local heuristic used when the LLM classifier fails.
+
+        The goal is not perfect classification, but to fail closed for obvious
+        non-financial uploads such as resumes and cover letters while still
+        allowing clearly loan-related documents to proceed if the classifier
+        briefly errors.
+        """
+        lowered = text.lower()
+        financial_keywords = (
+            "loan",
+            "emi",
+            "interest rate",
+            "principal",
+            "borrower",
+            "lender",
+            "sanction",
+            "repayment",
+            "foreclosure",
+            "prepayment",
+            "mortgage",
+            "statement",
+            "installment",
+        )
+        resume_keywords = (
+            "resume",
+            "curriculum vitae",
+            "cv",
+            "experience",
+            "education",
+            "skills",
+            "objective",
+            "references",
+        )
+
+        financial_hits = sum(1 for keyword in financial_keywords if keyword in lowered)
+        resume_hits = sum(1 for keyword in resume_keywords if keyword in lowered)
+        return financial_hits >= 2 and resume_hits < 2
+
     async def analyze_document(self, text: str) -> LoanAnalysisResponse:
         """
         Main public API for analyzing a loan document's text.
@@ -96,6 +145,19 @@ class LoanExtractionService:
         if not text or not text.strip():
             logger.error("Analysis failed: Empty document text provided.")
             raise EmptyDocumentError("The document text provided is empty.")
+
+        # 2. Document Classification Check
+        logger.info("Classifying document type...")
+        classification = await self.classify_document(text)
+        logger.info(f"Document classification results: {classification}")
+        if not classification.is_valid_financial_document:
+            error_msg = (
+                f"Invalid document type detected ({classification.document_type}). "
+                f"The uploaded document is not a valid loan agreement, bank statement, or financial offer. "
+                f"Reason: {classification.reason}"
+            )
+            logger.error(f"Analysis aborted: {error_msg}")
+            raise InvalidDocumentTypeError(error_msg)
 
         # --- Text truncation strategy ---
         # LLM API latency scales directly with token count. The key financial
@@ -179,6 +241,35 @@ class LoanExtractionService:
         except Exception as e:
             logger.error(f"Unexpected error assembling LoanAnalysisResponse: {e}")
             raise ExtractionServiceError(f"Failed to assemble final response: {e}")
+
+    async def classify_document(self, text: str) -> DocumentClassification:
+        """
+        Determine if the document text is a valid financial or loan-related document.
+        """
+        # Truncate text for classification to keep latency down
+        classification_text = text[:4000]
+        try:
+            response = await asyncio.wait_for(
+                self.classification_chain.ainvoke({"document_context": classification_text}),
+                timeout=30.0  # classification should be fast
+            )
+            return response
+        except Exception as e:
+            logger.error(f"Error during document classification: {e}")
+            # Fail closed for obvious non-financial documents. If the text
+            # clearly looks like a loan agreement, we allow the pipeline to
+            # continue with a low-confidence heuristic verdict.
+            looks_financial = self._looks_like_financial_document(classification_text)
+            return DocumentClassification(
+                is_valid_financial_document=looks_financial,
+                document_type="loan_agreement" if looks_financial else "unknown",
+                confidence=0.25 if looks_financial else 0.0,
+                reason=(
+                    "LLM classification failed, but the document contains enough loan-related terminology to proceed."
+                    if looks_financial
+                    else "Classification failed and the document does not look like a loan or financial document."
+                ),
+            )
 
 
     # =====================================================================

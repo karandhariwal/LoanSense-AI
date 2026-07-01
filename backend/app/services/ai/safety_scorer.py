@@ -66,15 +66,31 @@ class SafetyScorer:
                     explanation="Empty document content. Defaulting to moderate score."
                 )
 
-            # Invoke the structured chain
+            # Invoke the structured chain (LLM provides qualitative output only)
             score_response = await self.chain.ainvoke({
                 "document_context": document_context,
                 "extracted_metadata": extracted_metadata,
                 "detected_risks": str(detected_risks)
             })
-            
-            logger.info("Safety score generated successfully.")
-            return score_response
+
+            # ── Deterministic score override ────────────────────────────────────
+            # The LLM sets score=0.0 as a placeholder. We always replace it with
+            # the rule-based calculation so the same document always gets the
+            # same numeric score, regardless of LLM non-determinism.
+            deterministic_score = LoanCalculator.calculate_safety_score(detected_risks)
+            deterministic_rating = self._determine_correct_rating(deterministic_score)
+            logger.info(
+                f"Overriding LLM placeholder score with deterministic score: "
+                f"{deterministic_score} ({deterministic_rating.value})"
+            )
+            return LoanSafetyScore(
+                score=deterministic_score,
+                rating=deterministic_rating,
+                strengths=score_response.strengths,
+                weaknesses=score_response.weaknesses,
+                explanation=score_response.explanation
+            )
+            # ───────────────────────────────────────────────────────────────────
 
         except ValidationError as val_err:
             logger.warning(f"Pydantic Validation Error during safety score extraction: {val_err}. Attempting recovery...")
@@ -111,22 +127,24 @@ class SafetyScorer:
                 raw_text = raw_text.split("```")[1].split("```")[0].strip()
             
             data = json.loads(raw_text)
-            
-            # Extract and sanitize score
-            score = float(data.get("score", 5.0))
-            score = max(0.0, min(10.0, score))
-            
-            # Recompute the correct rating based on score to fix rating-to-score mismatch
-            correct_rating = self._determine_correct_rating(score)
-            
-            logger.info(f"Recovered safety score with adjusted rating: score={score}, rating={correct_rating}")
+
+            # ── Deterministic score override ────────────────────────────────────
+            # Compute the rule-based score from detected risks (same as primary path)
+            deterministic_score = LoanCalculator.calculate_safety_score(detected_risks)
+            correct_rating = self._determine_correct_rating(deterministic_score)
+
+            logger.info(
+                f"Recovered safety score with deterministic override: "
+                f"score={deterministic_score}, rating={correct_rating}"
+            )
             return LoanSafetyScore(
-                score=score,
+                score=deterministic_score,
                 rating=correct_rating,
                 strengths=data.get("strengths", []),
                 weaknesses=data.get("weaknesses", []),
-                explanation=data.get("explanation", "Recovered safety score from raw JSON model output.")
+                explanation=data.get("explanation", "Recovered safety evaluation from raw JSON model output.")
             )
+            # ───────────────────────────────────────────────────────────────────
         except Exception as recovery_err:
             logger.error(f"Failed to recover safety score via raw JSON fallback: {recovery_err}. Using rule-based scorer.")
             return self._generate_fallback_score(detected_risks)

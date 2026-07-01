@@ -5,6 +5,8 @@ from .loan_metadata import LoanMetadata
 from .risk_clause import RiskClause
 from .loan_score import LoanSafetyScore
 
+CURRENT_ANALYSIS_VERSION = 2
+
 
 class LoanAnalysisResponse(BaseModel):
     """
@@ -91,6 +93,12 @@ class LoanAnalysisResponse(BaseModel):
     loan_score: LoanSafetyScore = Field(
         ...,
         description="The safety score assessment detailing loan quality, strengths, and weaknesses.",
+    )
+
+    analysis_version: int = Field(
+        default=CURRENT_ANALYSIS_VERSION,
+        ge=1,
+        description="Pipeline version marker used to prevent stale cached analyses from being reused across logic changes.",
     )
 
     confidence_score: float = Field(

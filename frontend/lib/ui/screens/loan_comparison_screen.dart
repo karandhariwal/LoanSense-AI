@@ -643,19 +643,23 @@ class _SectionWinnerCard extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                      ),
-                      child: Text(
-                        '${(recommended.confidenceScore * 100).toStringAsFixed(0)}% Match Confidence',
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: _ComparePalette.primary,
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                        ),
+                        child: Text(
+                          '${(recommended.confidenceScore * 100).toStringAsFixed(0)}% Match Confidence',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: _ComparePalette.primary,
+                          ),
                         ),
                       ),
                     ),
@@ -917,6 +921,8 @@ class _FinancialRow extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               item.explanation,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 4,
               style: GoogleFonts.inter(
                 fontSize: 11,
                 fontStyle: FontStyle.italic,
@@ -1016,12 +1022,16 @@ class _RiskPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                title,
-                style: GoogleFonts.spaceGrotesk(fontSize: 14, fontWeight: FontWeight.bold, color: _ComparePalette.primary),
+              Flexible(
+                child: Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                  style: GoogleFonts.spaceGrotesk(fontSize: 14, fontWeight: FontWeight.bold, color: _ComparePalette.primary),
+                ),
               ),
-              const Spacer(),
               if (hasWinner) ...[
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -1031,6 +1041,8 @@ class _RiskPanel extends StatelessWidget {
                   ),
                   child: Text(
                     'Better: $winnerLabel',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                     style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w800, color: const Color(0xFF81C784)),
                   ),
                 ),
@@ -1238,6 +1250,8 @@ class _ScoreBox extends StatelessWidget {
           Text(
             explanation,
             textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 5,
             style: GoogleFonts.inter(fontSize: 11, height: 1.45, color: _ComparePalette.onSurfaceVariant),
           ),
         ],
@@ -2390,6 +2404,8 @@ class _DockItem extends StatelessWidget {
         Icon(icon, size: 22, color: color),
         const SizedBox(height: 4),
         Text(label,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
             style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w600,

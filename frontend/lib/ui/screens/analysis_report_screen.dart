@@ -142,24 +142,30 @@ class _LoanAnalysisReportScreenState extends ConsumerState<LoanAnalysisReportScr
                   padding: const EdgeInsets.only(bottom: 104),
                   child: _controller.isLoading
                       ? _LoadingShell(controller: _ambientController)
-                      : _ReportScrollView(
-                          controller: _controller,
-                          ambientController: _ambientController,
-                          scrollController: _scrollController,
-                          onOpenAssistant: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ChatScreen(
-                                  loanId: _controller.report.loanId,
-                                ),
-                              ),
-                            );
-                          },
-                          onGoHome: () => AppNavigator.goHome(context),
-                          onExport: _exportPdf,
-                          isExporting: _isExporting,
-                        ),
+                      : _controller.hasError
+                          ? _ErrorShell(
+                              message: _controller.errorMessage ??
+                                  'Unable to load the loan analysis.',
+                              onGoHome: () => AppNavigator.goHome(context),
+                            )
+                          : _ReportScrollView(
+                              controller: _controller,
+                              ambientController: _ambientController,
+                              scrollController: _scrollController,
+                              onOpenAssistant: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ChatScreen(
+                                      loanId: _controller.report.loanId,
+                                    ),
+                                  ),
+                                );
+                              },
+                              onGoHome: () => AppNavigator.goHome(context),
+                              onExport: _exportPdf,
+                              isExporting: _isExporting,
+                            ),
                 ),
               ),
               if (!_controller.isLoading)
@@ -274,11 +280,14 @@ class LoanAnalysisController extends ChangeNotifier {
   LoanAnalysisReport? _report;
   final String loanId;
   bool isLoading = true;
+  String? errorMessage;
   bool showSimpleExplanation = false;
   bool showCostExpansion = false;
   final Set<String> expandedAlertIds = <String>{};
 
   LoanAnalysisController({LoanAnalysisReport? report, required this.loanId}) : _report = report;
+
+  bool get hasError => errorMessage != null;
 
   LoanAnalysisReport get report => _report!;
 
@@ -286,18 +295,21 @@ class LoanAnalysisController extends ChangeNotifier {
     if (_report == null) {
       // Guard: never attempt a network call with an empty/invalid loan ID.
       if (loanId.isEmpty) {
-        _report = _generateFallbackReport('—');
+        errorMessage = 'No loan analysis is available. Please upload a valid PDF loan document.';
         isLoading = false;
         notifyListeners();
         return;
       }
       try {
         _report = await LoanRepository().fetchAnalysis(loanId);
+        errorMessage = null;
       } catch (e) {
         developer.log('Error fetching analysis for $loanId: $e');
-        _report = _generateFallbackReport(loanId);
+        errorMessage = 'The real analysis could not be loaded for this document. ${e.toString()}';
+        _report = null;
       }
     } else {
+      errorMessage = null;
       await Future<void>.delayed(const Duration(milliseconds: 1150));
     }
     isLoading = false;
@@ -321,27 +333,6 @@ class LoanAnalysisController extends ChangeNotifier {
       expandedAlertIds.add(id);
     }
     notifyListeners();
-  }
-
-  static LoanAnalysisReport _generateFallbackReport(String loanId) {
-    return LoanAnalysisReport(
-      loanId: loanId,
-      lenderName: 'Demo Lender',
-      productName: 'Dynamic Demo Loan',
-      healthScore: 7.5,
-      healthSummary: 'Moderate health. Previewing fallback demo data.',
-      detailedSummary: 'This is a demo preview report generated because the backend API is currently unreachable. Real deployment will fetch full AI metrics from the server.',
-      simpleSummary: 'Real-time server connection unavailable. Showing local demo template.',
-      recommendedAction: 'Verify API Connection',
-      contractClarity: '85% Transparent',
-      metrics: const [],
-      alerts: const [],
-      sources: const [],
-      costSlices: const [],
-      emiSeries: const [],
-      clauseChips: const [],
-      extractions: const [],
-    );
   }
 }
 
@@ -1503,6 +1494,76 @@ class _LoadingShell extends StatelessWidget {
         _LoadingCard(height: 380, controller: controller),
         const SizedBox(height: 16),
         _LoadingCard(height: 240, controller: controller),
+      ],
+    );
+  }
+}
+
+class _ErrorShell extends StatelessWidget {
+  final String message;
+  final VoidCallback onGoHome;
+
+  const _ErrorShell({
+    required this.message,
+    required this.onGoHome,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 76, 20, 120),
+      children: [
+        _GlassCard(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: _LensColors.error, size: 28),
+              const SizedBox(height: 16),
+              Text(
+                'Real analysis unavailable',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  color: _LensColors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  height: 1.55,
+                  color: _LensColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  FilledButton(
+                    onPressed: onGoHome,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _LensColors.primary,
+                      foregroundColor: _LensColors.onPrimary,
+                    ),
+                    child: const Text('Back Home'),
+                  ),
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _LensColors.onSurface,
+                      side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+                    ),
+                    child: const Text('Go Back'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

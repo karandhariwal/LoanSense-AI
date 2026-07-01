@@ -17,6 +17,7 @@ from app.services.ai.safety_scorer import SafetyScorer
 from app.services.ai.extraction_service import (
     LoanExtractionService,
     EmptyDocumentError,
+    InvalidDocumentTypeError,
     LLMTimeoutError,
     SchemaValidationError
 )
@@ -197,6 +198,39 @@ class TestExtractionServiceAndCalculations(unittest.TestCase):
         
         with self.assertRaises(EmptyDocumentError):
             asyncio.run(service.analyze_document("   "))
+
+    @patch("app.services.ai.extraction_service.ChatNVIDIA")
+    def test_classification_fails_closed_for_resume_like_text(self, mock_chat_nvidia):
+        service = LoanExtractionService()
+        service.classification_chain = MagicMock()
+        service.classification_chain.ainvoke = AsyncMock(side_effect=RuntimeError("classifier unavailable"))
+
+        result = asyncio.run(
+            service.classify_document(
+                "Resume\nExperience\nEducation\nSkills\nObjective\nReferences"
+            )
+        )
+
+        self.assertFalse(result.is_valid_financial_document)
+        self.assertEqual(result.document_type, "unknown")
+
+    @patch("app.services.ai.extraction_service.ChatNVIDIA")
+    def test_analyze_document_rejects_resume_like_text(self, mock_chat_nvidia):
+        service = LoanExtractionService()
+        service.classify_document = AsyncMock(
+            return_value=type(
+                "DocClass",
+                (),
+                {
+                    "is_valid_financial_document": False,
+                    "document_type": "unknown",
+                    "reason": "Document appears to be a resume.",
+                },
+            )()
+        )
+
+        with self.assertRaises(InvalidDocumentTypeError):
+            asyncio.run(service.analyze_document("Resume\nExperience\nSkills"))
 
     def test_extraction_service_full_pipeline_success(self):
         """Test that the full orchestration executes correctly with all subsystems mocked."""
